@@ -1,12 +1,35 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useAccount, useBalance, useDisconnect } from "wagmi";
+import { useWeb3Modal } from "@web3modal/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Users, FileText, Coins, CheckCircle, XCircle, Plus, User, Building } from "lucide-react";
+import {
+  Shield,
+  Users,
+  FileText,
+  Coins,
+  CheckCircle,
+  XCircle,
+  Plus,
+  User,
+  Building,
+} from "lucide-react";
+import Navbar from "@/components/custom-components/Navbar";
+import { Navigation } from "@/components/custom-components/Navigations";
+import { AdminDashboard } from "./admin-dashboard/index";
+import { UserDashboard } from "./user-dashboard";
+import Overview from "./Overview";
 
 interface ClaimTopic {
   id: number;
@@ -31,14 +54,86 @@ interface Claim {
   expiryDate: string;
   isValid: boolean;
 }
+type PageType = "overview" | "admin" | "user";
+
+const Admin = "0x35C6e706EE23CD898b2C15fEB20f0fE726E734D2";
 
 const Index = () => {
   const { toast } = useToast();
-  
+  const [walletAddress, setWalletAddress] = useState("");
+  const [watrBalance, setWatrBalance] = useState("0");
+  const [activeSection, setActiveSection] = useState("send");
+  const [currentPage, setCurrentPage] = useState<PageType>("overview");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (walletAddress === Admin) {
+      setIsAdmin(true);
+    }
+  }, [walletAddress]);
+
+  const { open } = useWeb3Modal();
+  const { disconnect } = useDisconnect();
+
+  const { isConnected, address } = useAccount();
+  const { data } = useBalance({
+    address: address,
+  });
+
+  // ****Connect wallet and fetch balance and address.*******
+  useEffect(() => {
+    const handleConnection = async () => {
+      if (isConnected && address) {
+        setWalletAddress(address);
+        setWatrBalance(parseFloat(data?.formatted || "0").toFixed(4));
+        toast({
+          title: "Wallet Connected",
+          description: "Successfully connected to wallet",
+        });
+      }
+    };
+    handleConnection();
+  }, [isConnected, address, data]);
+
+  const connectWallet = async () => {
+    try {
+      if (isConnected) {
+        await disconnect();
+        toast({
+          title: "Wallet Disconnected",
+          description: "Successfully disconnected from wallet",
+        });
+      } else {
+        await open();
+      }
+    } catch (error) {
+      console.error("Error managing wallet connection:", error);
+      toast({
+        title: "Operation Failed",
+        description: isConnected
+          ? "Failed to disconnect wallet. Please try again."
+          : "Failed to connect wallet. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const renderCurrentPage = () => {
+    switch (currentPage) {
+      case "admin":
+        return isConnected && isAdmin ? <AdminDashboard /> : <Overview />;
+      case "user":
+        return isConnected ? <UserDashboard /> : <Overview />;
+      default:
+        return <Overview />;
+    }
+  };
+
+  ////************************************************************** */
   // State for all sections
   const [claimTopics, setClaimTopics] = useState<ClaimTopic[]>([
     { id: 1, name: "KYC Verification" },
-    { id: 100, name: "Sustainability Certificate" }
+    { id: 100, name: "Sustainability Certificate" },
   ]);
   const [trustedIssuers, setTrustedIssuers] = useState<TrustedIssuer[]>([]);
   const [userIdentities, setUserIdentities] = useState<UserIdentity[]>([]);
@@ -60,13 +155,21 @@ const Index = () => {
 
   const addClaimTopic = () => {
     if (!newTopicName || !newTopicId) {
-      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
       return;
     }
-    
+
     const id = parseInt(newTopicId);
-    if (claimTopics.find(topic => topic.id === id)) {
-      toast({ title: "Error", description: "Topic ID already exists", variant: "destructive" });
+    if (claimTopics.find((topic) => topic.id === id)) {
+      toast({
+        title: "Error",
+        description: "Topic ID already exists",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -78,63 +181,102 @@ const Index = () => {
 
   const addTrustedIssuer = () => {
     if (!newIssuerAddress || selectedTopics.length === 0) {
-      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
       return;
     }
 
-    setTrustedIssuers([...trustedIssuers, { 
-      address: newIssuerAddress, 
-      authorizedTopics: [...selectedTopics] 
-    }]);
+    setTrustedIssuers([
+      ...trustedIssuers,
+      {
+        address: newIssuerAddress,
+        authorizedTopics: [...selectedTopics],
+      },
+    ]);
     setNewIssuerAddress("");
     setSelectedTopics([]);
-    toast({ title: "Success", description: "Trusted issuer added successfully" });
+    toast({
+      title: "Success",
+      description: "Trusted issuer added successfully",
+    });
   };
 
   const registerIdentity = () => {
     if (!newUserWallet || !newUserCountry) {
-      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
       return;
     }
 
     const identityAddress = `0x${Math.random().toString(16).substr(2, 40)}`;
-    setUserIdentities([...userIdentities, {
-      walletAddress: newUserWallet,
-      identityAddress,
-      countryCode: newUserCountry
-    }]);
+    setUserIdentities([
+      ...userIdentities,
+      {
+        walletAddress: newUserWallet,
+        identityAddress,
+        countryCode: newUserCountry,
+      },
+    ]);
     setNewUserWallet("");
     setNewUserCountry("");
-    toast({ title: "Success", description: "User identity registered successfully" });
+    toast({
+      title: "Success",
+      description: "User identity registered successfully",
+    });
   };
 
   const issueClaim = () => {
     if (!claimUserAddress || !claimExpiryDate) {
-      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
       return;
     }
 
-    const user = userIdentities.find(u => u.walletAddress === claimUserAddress);
+    const user = userIdentities.find(
+      (u) => u.walletAddress === claimUserAddress
+    );
     if (!user) {
-      toast({ title: "Error", description: "User identity not found", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "User identity not found",
+        variant: "destructive",
+      });
       return;
     }
 
-    const issuer = trustedIssuers.find(i => i.authorizedTopics.includes(claimTopicId));
+    const issuer = trustedIssuers.find((i) =>
+      i.authorizedTopics.includes(claimTopicId)
+    );
     if (!issuer) {
-      toast({ title: "Error", description: "No authorized issuer found for this topic", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "No authorized issuer found for this topic",
+        variant: "destructive",
+      });
       return;
     }
 
     const isValid = new Date(claimExpiryDate) > new Date();
-    setClaims([...claims, {
-      userAddress: claimUserAddress,
-      topicId: claimTopicId,
-      issuer: issuer.address,
-      expiryDate: claimExpiryDate,
-      isValid
-    }]);
-    
+    setClaims([
+      ...claims,
+      {
+        userAddress: claimUserAddress,
+        topicId: claimTopicId,
+        issuer: issuer.address,
+        expiryDate: claimExpiryDate,
+        isValid,
+      },
+    ]);
+
     setClaimUserAddress("");
     setClaimExpiryDate("");
     toast({ title: "Success", description: "Claim issued successfully" });
@@ -142,53 +284,83 @@ const Index = () => {
 
   const checkCompliance = () => {
     if (!transferFrom || !transferTo) {
-      toast({ title: "Error", description: "Please fill in all transfer fields", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Please fill in all transfer fields",
+        variant: "destructive",
+      });
       return;
     }
 
-    const fromUser = userIdentities.find(u => u.walletAddress === transferFrom);
-    const toUser = userIdentities.find(u => u.walletAddress === transferTo);
+    const fromUser = userIdentities.find(
+      (u) => u.walletAddress === transferFrom
+    );
+    const toUser = userIdentities.find((u) => u.walletAddress === transferTo);
 
     if (!fromUser || !toUser) {
-      toast({ title: "Compliance Check Failed", description: "One or both users don't have registered identities", variant: "destructive" });
+      toast({
+        title: "Compliance Check Failed",
+        description: "One or both users don't have registered identities",
+        variant: "destructive",
+      });
       return;
     }
 
-    const fromClaims = claims.filter(c => c.userAddress === transferFrom && c.isValid);
-    const toClaims = claims.filter(c => c.userAddress === transferTo && c.isValid);
+    const fromClaims = claims.filter(
+      (c) => c.userAddress === transferFrom && c.isValid
+    );
+    const toClaims = claims.filter(
+      (c) => c.userAddress === transferTo && c.isValid
+    );
 
     if (fromClaims.length === 0 || toClaims.length === 0) {
-      toast({ title: "Compliance Check Failed", description: "Both users need valid claims for transfer", variant: "destructive" });
+      toast({
+        title: "Compliance Check Failed",
+        description: "Both users need valid claims for transfer",
+        variant: "destructive",
+      });
       return;
     }
 
-    toast({ title: "Compliance Check Passed", description: "Transfer is authorized!", variant: "default" });
+    toast({
+      title: "Compliance Check Passed",
+      description: "Transfer is authorized!",
+      variant: "default",
+    });
   };
 
   const executeTransfer = () => {
     checkCompliance();
     // In a real app, this would execute the token transfer
-    toast({ title: "Transfer Executed", description: `Successfully transferred ${transferAmount} DPP tokens`, variant: "default" });
+    toast({
+      title: "Transfer Executed",
+      description: `Successfully transferred ${transferAmount} DPP tokens`,
+      variant: "default",
+    });
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground py-16">
-        <div className="container mx-auto px-6 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4">
-            ERC-3643 Digital Product Passport
-          </h1>
-          <p className="text-xl md:text-2xl mb-8 opacity-90">
-            Identity-Controlled Compliance for Supply Chain Transparency
-          </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <Badge variant="secondary" className="px-4 py-2">Identity Management</Badge>
-            <Badge variant="secondary" className="px-4 py-2">Compliance Control</Badge>
-            <Badge variant="secondary" className="px-4 py-2">Supply Chain Tracking</Badge>
-          </div>
-        </div>
-      </div>
+      {/* <Navbar
+        isConnected={isConnected}
+        connectWallet={connectWallet}
+        walletAddress={walletAddress}
+        watrBalance={watrBalance}
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+      /> */}
+
+      <Navigation
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        isConnected={isConnected}
+        onConnect={connectWallet}
+        address={walletAddress}
+        isAdmin={isAdmin}
+      />
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {renderCurrentPage()}
+      </main>
 
       <div className="container mx-auto px-6 py-12">
         <Tabs defaultValue="topics" className="w-full">
@@ -208,7 +380,8 @@ const Index = () => {
                   🧩 Claim Topics Setup
                 </CardTitle>
                 <CardDescription>
-                  Define claim types that represent different compliance requirements (KYC, Sustainability, etc.)
+                  Define claim types that represent different compliance
+                  requirements (KYC, Sustainability, etc.)
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
@@ -239,12 +412,17 @@ const Index = () => {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Current Topics:</h4>
                   {claimTopics.map((topic) => (
-                    <div key={topic.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <span><strong>ID {topic.id}:</strong> {topic.name}</span>
+                    <div
+                      key={topic.id}
+                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                    >
+                      <span>
+                        <strong>ID {topic.id}:</strong> {topic.name}
+                      </span>
                       <Badge variant="outline">Active</Badge>
                     </div>
                   ))}
@@ -261,7 +439,8 @@ const Index = () => {
                   🛡️ Trusted Issuers Setup
                 </CardTitle>
                 <CardDescription>
-                  Register entities that can issue claims (KYC providers, certification bodies, etc.)
+                  Register entities that can issue claims (KYC providers,
+                  certification bodies, etc.)
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
@@ -281,12 +460,16 @@ const Index = () => {
                       {claimTopics.map((topic) => (
                         <Badge
                           key={topic.id}
-                          variant={selectedTopics.includes(topic.id) ? "default" : "outline"}
+                          variant={
+                            selectedTopics.includes(topic.id)
+                              ? "default"
+                              : "outline"
+                          }
                           className="cursor-pointer"
                           onClick={() => {
-                            setSelectedTopics(prev => 
-                              prev.includes(topic.id) 
-                                ? prev.filter(id => id !== topic.id)
+                            setSelectedTopics((prev) =>
+                              prev.includes(topic.id)
+                                ? prev.filter((id) => id !== topic.id)
                                 : [...prev, topic.id]
                             );
                           }}
@@ -301,17 +484,25 @@ const Index = () => {
                   <Plus className="h-4 w-4 mr-2" />
                   Add Trusted Issuer
                 </Button>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Trusted Issuers:</h4>
                   {trustedIssuers.map((issuer, index) => (
                     <div key={index} className="p-3 bg-muted rounded-lg">
-                      <div className="font-mono text-sm mb-2">{issuer.address}</div>
+                      <div className="font-mono text-sm mb-2">
+                        {issuer.address}
+                      </div>
                       <div className="flex gap-2">
-                        {issuer.authorizedTopics.map(topicId => {
-                          const topic = claimTopics.find(t => t.id === topicId);
+                        {issuer.authorizedTopics.map((topicId) => {
+                          const topic = claimTopics.find(
+                            (t) => t.id === topicId
+                          );
                           return topic ? (
-                            <Badge key={topicId} variant="secondary" className="text-xs">
+                            <Badge
+                              key={topicId}
+                              variant="secondary"
+                              className="text-xs"
+                            >
                               {topic.name}
                             </Badge>
                           ) : null;
@@ -332,7 +523,8 @@ const Index = () => {
                   👤 User Identity Setup
                 </CardTitle>
                 <CardDescription>
-                  Register user identities that can participate in compliant transfers
+                  Register user identities that can participate in compliant
+                  transfers
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
@@ -362,17 +554,23 @@ const Index = () => {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Registered Identities:</h4>
                   {userIdentities.map((user, index) => (
                     <div key={index} className="p-3 bg-muted rounded-lg">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
                         <div>
-                          <strong>Wallet:</strong> <span className="font-mono">{user.walletAddress}</span>
+                          <strong>Wallet:</strong>{" "}
+                          <span className="font-mono">
+                            {user.walletAddress}
+                          </span>
                         </div>
                         <div>
-                          <strong>Identity:</strong> <span className="font-mono">{user.identityAddress}</span>
+                          <strong>Identity:</strong>{" "}
+                          <span className="font-mono">
+                            {user.identityAddress}
+                          </span>
                         </div>
                         <div>
                           <strong>Country:</strong> {user.countryCode}
@@ -393,7 +591,8 @@ const Index = () => {
                   📝 Issue Claims
                 </CardTitle>
                 <CardDescription>
-                  Issue compliance claims to users (simulating KYC providers, certifiers, etc.)
+                  Issue compliance claims to users (simulating KYC providers,
+                  certifiers, etc.)
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
@@ -412,7 +611,9 @@ const Index = () => {
                     <select
                       id="claimTopic"
                       value={claimTopicId}
-                      onChange={(e) => setClaimTopicId(parseInt(e.target.value))}
+                      onChange={(e) =>
+                        setClaimTopicId(parseInt(e.target.value))
+                      }
                       className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md"
                     >
                       {claimTopics.map((topic) => (
@@ -438,7 +639,7 @@ const Index = () => {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Issued Claims:</h4>
                   {claims.map((claim, index) => (
@@ -446,10 +647,17 @@ const Index = () => {
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <div className="text-sm">
-                            <strong>User:</strong> <span className="font-mono">{claim.userAddress}</span>
+                            <strong>User:</strong>{" "}
+                            <span className="font-mono">
+                              {claim.userAddress}
+                            </span>
                           </div>
                           <div className="text-sm">
-                            <strong>Topic:</strong> {claimTopics.find(t => t.id === claim.topicId)?.name}
+                            <strong>Topic:</strong>{" "}
+                            {
+                              claimTopics.find((t) => t.id === claim.topicId)
+                                ?.name
+                            }
                           </div>
                           <div className="text-sm">
                             <strong>Expires:</strong> {claim.expiryDate}
@@ -484,7 +692,8 @@ const Index = () => {
                   💱 Token Transfer (DPP Token)
                 </CardTitle>
                 <CardDescription>
-                  Transfer Digital Product Passport tokens between compliant users
+                  Transfer Digital Product Passport tokens between compliant
+                  users
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
@@ -518,20 +727,29 @@ const Index = () => {
                     />
                   </div>
                   <div className="flex items-end">
-                    <Button onClick={executeTransfer} variant="success" className="w-full">
+                    <Button
+                      onClick={executeTransfer}
+                      variant="success"
+                      className="w-full"
+                    >
                       <Coins className="h-4 w-4 mr-2" />
                       Transfer Token
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="border-t border-border pt-6">
                   <div className="text-center">
-                    <Button onClick={checkCompliance} variant="outline" className="mb-4">
+                    <Button
+                      onClick={checkCompliance}
+                      variant="outline"
+                      className="mb-4"
+                    >
                       Check Compliance First
                     </Button>
                     <p className="text-sm text-muted-foreground">
-                      Transfers are only allowed between users with valid identity claims and compliance certificates
+                      Transfers are only allowed between users with valid
+                      identity claims and compliance certificates
                     </p>
                   </div>
                 </div>
@@ -543,10 +761,12 @@ const Index = () => {
         {/* Footer */}
         <div className="text-center py-8 text-muted-foreground">
           <p className="mb-2">
-            This demo showcases how <strong>ERC-3643</strong> enables compliant token transfers through identity verification and claims management.
+            This demo showcases how <strong>ERC-3643</strong> enables compliant
+            token transfers through identity verification and claims management.
           </p>
           <p className="text-sm">
-            Perfect for supply chain transparency, regulatory compliance, and enterprise tokenization.
+            Perfect for supply chain transparency, regulatory compliance, and
+            enterprise tokenization.
           </p>
         </div>
       </div>
