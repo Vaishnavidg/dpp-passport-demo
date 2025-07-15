@@ -1,11 +1,11 @@
-//Contract Address => 0x3598D885fbCF9b5CE7969503D0aeD4d1fD02F58F
+//Contract Address = 0x2B30a59589df3C3679e1374ec4ae13d938f5621c
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 contract Identity {
 
-    //Structure of Claim 
+    // Structure of Claim 
     struct Claim {
         uint256 topic;
         address issuer;
@@ -14,10 +14,11 @@ contract Identity {
         uint256 validTo;
     }
 
-    mapping(uint256 => Claim) public claims; //topic ->claim
-     uint256[] public claimTopics;
+    mapping(uint256 => Claim) public claims; // topic -> claim
+    Claim[] public allClaims;
+    uint256[] public claimTopics;
 
-    //function to add the claims
+    // Function to add a claim
     function addClaim(
         uint256 topic,
         address issuer,
@@ -29,12 +30,40 @@ contract Identity {
         if (claims[topic].validTo == 0) {
             claimTopics.push(topic);
         }
-        claims[topic] = Claim(topic, issuer, signature, data, validTo);
+
+        Claim memory newClaim = Claim(topic, issuer, signature, data, validTo);
+        claims[topic] = newClaim;
+        allClaims.push(newClaim);
     }
 
-    //check if the claim is valid or not
+    // Check if the claim is valid or not
     function isClaimValid(uint256 topic) external view returns (bool, uint256, uint256)  {
         Claim memory c = claims[topic];
-         return (c.validTo > block.timestamp, c.validTo, block.timestamp);
-}
+        return (c.validTo > block.timestamp, c.validTo, block.timestamp);
+    }
+
+    // Get all claims
+    function getAllClaims() external view returns (
+        uint256[] memory topics,
+        address[] memory issuers,
+        bytes[] memory signatures,
+        bytes[] memory datas,
+        uint256[] memory validsTo
+    ) {
+        uint256 len = allClaims.length;
+        topics = new uint256[](len);
+        issuers = new address[](len);
+        signatures = new bytes[](len);
+        datas = new bytes[](len);
+        validsTo = new uint256[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            Claim memory c = allClaims[i];
+            topics[i] = c.topic;
+            issuers[i] = c.issuer;
+            signatures[i] = c.signature;
+            datas[i] = c.data;
+            validsTo[i] = c.validTo;
+        }
+    }
 }
