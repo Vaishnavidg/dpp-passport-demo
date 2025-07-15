@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -14,6 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, FileText, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MOCK_DATA, EDUCATIONAL_MESSAGES } from "../../lib/config";
+import { writeContract } from "@wagmi/core";
+import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
+import { useContractRead } from "wagmi";
+
+const Admin = "0x35C6e706EE23CD898b2C15fEB20f0fE726E734D2";
+const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 
 interface ClaimTopic {
   id: number;
@@ -22,9 +28,6 @@ interface ClaimTopic {
 }
 
 export function ClaimTopicsTab() {
-  const [claimTopics, setClaimTopics] = useState<ClaimTopic[]>(
-    MOCK_DATA.claimTopics
-  );
   const [newTopic, setNewTopic] = useState({
     id: "",
     name: "",
@@ -32,7 +35,25 @@ export function ClaimTopicsTab() {
   });
   const { toast } = useToast();
 
-  const handleAddTopic = () => {
+  const { data, isLoading, isError } = useContractRead({
+    address: ClaimTopicAddress,
+    abi: ClaimTopicsABI,
+    functionName: "getClaimTopicsWithNamesAndDescription",
+    watch: true,
+  });
+
+  const topics = useMemo(() => {
+    if (!data) return [];
+    const [ids, names, descriptions] = data as [bigint[], string[], string[]];
+
+    return ids.map((id, index) => ({
+      id: id.toString(),
+      name: names[index],
+      description: descriptions[index],
+    }));
+  }, [data]);
+
+  const handleAddTopic = async () => {
     if (!newTopic.id || !newTopic.name) {
       toast({
         title: "Missing Information",
@@ -41,21 +62,31 @@ export function ClaimTopicsTab() {
       });
       return;
     }
-
-    const topic: ClaimTopic = {
-      id: parseInt(newTopic.id),
-      name: newTopic.name,
-      description: newTopic.description,
-    };
-
-    setClaimTopics([...claimTopics, topic]);
-    setNewTopic({ id: "", name: "", description: "" });
-
-    toast({
-      title: "Claim Topic Added",
-      description: `Topic "${topic.name}" has been registered`,
-      variant: "default",
+    const result = await writeContract({
+      address: ClaimTopicAddress,
+      abi: ClaimTopicsABI,
+      functionName: "addClaimTopic",
+      args:
+        newTopic && ClaimTopicAddress
+          ? [newTopic.id, newTopic.name, newTopic.description]
+          : undefined,
+      enabled: !!ClaimTopicAddress && newTopic,
     });
+    if (result) {
+      console.log("Claim Topic Added:", result);
+      toast({
+        title: "Claim Topic Added",
+        description: `Topic "${newTopic.name}" has been registered`,
+        variant: "default",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Transaction not ready. Please try again.",
+        variant: "destructive",
+      });
+    }
+    setNewTopic({ id: "", name: "", description: "" });
   };
 
   return (
@@ -141,7 +172,7 @@ export function ClaimTopicsTab() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {claimTopics.map((topic) => (
+            {topics.map((topic) => (
               <div
                 key={topic.id}
                 className="p-4 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors"
@@ -162,7 +193,7 @@ export function ClaimTopicsTab() {
               </div>
             ))}
 
-            {claimTopics.length === 0 && (
+            {topics.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No claim topics registered yet</p>

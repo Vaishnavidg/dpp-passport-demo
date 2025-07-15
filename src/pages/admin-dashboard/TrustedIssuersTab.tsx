@@ -1,4 +1,5 @@
-import { useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -14,27 +15,74 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Users, Info, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MOCK_DATA } from "@/lib/config";
+import { writeContract } from "@wagmi/core";
+import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.json";
+import { useContractRead } from "wagmi";
+import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
 
 interface TrustedIssuer {
   address: string;
   name: string;
-  topics: number[];
+  topics: string[];
 }
+const TrustedIssuersRegistryAddress =
+  "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
+const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 
 export function TrustedIssuersTab() {
-  const [trustedIssuers, setTrustedIssuers] = useState<TrustedIssuer[]>(
-    MOCK_DATA.trustedIssuers
-  );
+  const { data, isLoading, isError } = useContractRead({
+    address: ClaimTopicAddress,
+    abi: ClaimTopicsABI,
+    functionName: "getClaimTopicsWithNamesAndDescription",
+    watch: true,
+  });
+  const topics = useMemo(() => {
+    if (!data) return [];
+    const [ids, names, descriptions] = data as [bigint[], string[], string[]];
+
+    return ids.map((id, index) => ({
+      id: id.toString(),
+      name: names[index],
+      description: descriptions[index],
+    }));
+  }, [data]);
+
+  const { data: issuers } = useContractRead({
+    address: TrustedIssuersRegistryAddress,
+    abi: TrustedIssuersABI,
+    functionName: "getAllIssuersDetails",
+    watch: true,
+  });
+  const trustedIssuers: TrustedIssuer[] = useMemo(() => {
+    if (!issuers) return [];
+
+    const [addresses, flatTopics, names] = issuers as [
+      string[],
+      bigint[],
+      string[]
+    ];
+
+    return addresses.map((address, index) => {
+      // If topics are flat, then we assume 1:1 mapping → each issuer has one topic
+      const topicId = flatTopics?.[index]?.toString() ?? ""; // safe fallback
+      return {
+        address: address.toString(),
+        name: names[index],
+        topics: topicId ? [topicId] : [],
+      };
+    });
+  }, [issuers]);
+
+  console.log(trustedIssuers);
+
   const [newIssuer, setNewIssuer] = useState({
     address: "",
     name: "",
-    topics: [] as number[],
+    topics: [] as string[],
   });
   const { toast } = useToast();
 
-  const availableTopics = MOCK_DATA.claimTopics;
-
-  const handleTopicChange = (topicId: number, checked: boolean) => {
+  const handleTopicChange = (topicId: string, checked: boolean) => {
     if (checked) {
       setNewIssuer({ ...newIssuer, topics: [...newIssuer.topics, topicId] });
     } else {
@@ -45,7 +93,7 @@ export function TrustedIssuersTab() {
     }
   };
 
-  const handleAddIssuer = () => {
+  const handleAddIssuer = async () => {
     if (!newIssuer.address || !newIssuer.name) {
       toast({
         title: "Missing Information",
@@ -54,7 +102,6 @@ export function TrustedIssuersTab() {
       });
       return;
     }
-
     if (newIssuer.topics.length === 0) {
       toast({
         title: "No Topics Selected",
@@ -64,29 +111,34 @@ export function TrustedIssuersTab() {
       return;
     }
 
-    const issuer: TrustedIssuer = {
-      address: newIssuer.address,
-      name: newIssuer.name,
-      topics: newIssuer.topics,
-    };
+    try {
+      const topicIds = newIssuer.topics.map((id) => BigInt(id));
+      const result = await writeContract({
+        address: TrustedIssuersRegistryAddress,
+        abi: TrustedIssuersABI,
+        functionName: "addTrustedIssuer",
+        args: [newIssuer.address, newIssuer.name, topicIds],
+      });
 
-    setTrustedIssuers([...trustedIssuers, issuer]);
-    setNewIssuer({ address: "", name: "", topics: [] });
-
-    toast({
-      title: "Trusted Issuer Added",
-      description: `Issuer "${issuer.name}" has been registered`,
-      variant: "default",
-    });
+      console.log("Trusted Issuers Added successfully", result.hash);
+      toast({
+        title: "Trusted Issuer Added",
+        description: `Issuer "${newIssuer.name}" has been registered`,
+        variant: "default",
+      });
+      setNewIssuer({ address: "", name: "", topics: [] });
+    } catch (err: any) {
+      console.error("Error adding issuer:", err);
+      toast({
+        title: "Transaction Failed",
+        description: err.shortMessage || err.message || "Something went wrong",
+        variant: "destructive",
+      });
+    }
   };
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
-
-  const getTopicName = (topicId: number) => {
-    const topic = availableTopics.find((t) => t.id === topicId);
-    return topic ? topic.name : `Topic ${topicId}`;
   };
 
   return (
@@ -138,7 +190,7 @@ export function TrustedIssuersTab() {
             <div>
               <Label>Authorized Claim Topics</Label>
               <div className="space-y-2 mt-2">
-                {availableTopics.map((topic) => (
+                {topics.map((topic) => (
                   <div key={topic.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={`topic-${topic.id}`}
@@ -191,15 +243,18 @@ export function TrustedIssuersTab() {
                   </div>
 
                   <div className="flex flex-wrap gap-1">
-                    {issuer.topics.map((topicId) => (
-                      <Badge
-                        key={topicId}
-                        className="text-xs bg-success/20 text-success-foreground"
-                      >
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        {getTopicName(topicId)}
-                      </Badge>
-                    ))}
+                    {issuer.topics.map((topicId) => {
+                      const topic = topics.find((t) => t.id === topicId);
+                      return (
+                        <Badge
+                          key={topicId}
+                          className="text-xs bg-success/70 text-success-foreground"
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          {topic?.name || `Topic ${topicId}`}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
