@@ -5,7 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Navigation } from "@/components/custom-components/Navigations";
 import { AdminDashboard } from "./admin-dashboard/index";
 import { UserDashboard } from "./user-dashboard";
+import { IssuerDashboard } from "./issuer-dashboard";
 import Overview from "./Overview";
+import { readContract } from "@wagmi/core";
+import TrustedIssuersABI from "../../contracts-abi-files/TrustedIssuersABI.json";
 
 interface ClaimTopic {
   id: number;
@@ -30,15 +33,17 @@ interface Claim {
   expiryDate: string;
   isValid: boolean;
 }
-type PageType = "overview" | "admin" | "user";
+type PageType = "overview" | "admin" | "user" | "issuer";
 
 const Admin = "0x35C6e706EE23CD898b2C15fEB20f0fE726E734D2";
+const TrustedIssuersRegistryAddress = "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
 
 const Index = () => {
   const { toast } = useToast();
   const [walletAddress, setWalletAddress] = useState("");
   const [currentPage, setCurrentPage] = useState<PageType>("overview");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isTrustedIssuer, setIsTrustedIssuer] = useState(false);
 
   useEffect(() => {
     if (walletAddress === Admin) {
@@ -46,6 +51,31 @@ const Index = () => {
     } else {
       setIsAdmin(false);
     }
+  }, [walletAddress]);
+
+  // Check if user is a trusted issuer
+  useEffect(() => {
+    const checkIssuerStatus = async () => {
+      if (!walletAddress) {
+        setIsTrustedIssuer(false);
+        return;
+      }
+      
+      try {
+        const result = await readContract({
+          address: TrustedIssuersRegistryAddress,
+          abi: TrustedIssuersABI,
+          functionName: "isTrustedIssuer",
+          args: [walletAddress],
+        });
+        setIsTrustedIssuer(result as boolean);
+      } catch (error) {
+        console.error("Error checking issuer status:", error);
+        setIsTrustedIssuer(false);
+      }
+    };
+
+    checkIssuerStatus();
   }, [walletAddress]);
 
   const { open } = useWeb3Modal();
@@ -98,6 +128,8 @@ const Index = () => {
     switch (currentPage) {
       case "admin":
         return isConnected && isAdmin ? <AdminDashboard /> : <Overview />;
+      case "issuer":
+        return isConnected && isTrustedIssuer ? <IssuerDashboard /> : <Overview />;
       case "user":
         return isConnected ? <UserDashboard /> : <Overview />;
       default:
@@ -114,6 +146,7 @@ const Index = () => {
         onConnect={connectWallet}
         address={walletAddress}
         isAdmin={isAdmin}
+        isTrustedIssuer={isTrustedIssuer}
       />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {renderCurrentPage()}

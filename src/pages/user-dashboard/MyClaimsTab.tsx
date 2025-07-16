@@ -1,4 +1,5 @@
-import { useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -16,45 +17,145 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { MOCK_DATA } from "@/lib/config";
+import { useContractRead, useAccount } from "wagmi";
+import { readContract } from "@wagmi/core";
+import { hexToString } from "viem";
+import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
+import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
+import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.json";
+
+const IdentityContractAddress = "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978";
+const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
+const TrustedIssuersRegistryAddress = "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
 
 interface UserClaim {
-  topicId: number;
+  topicId: string;
   topicName: string;
   issuer: string;
   issuedAt: string;
   signature: string;
   isValid: boolean;
   expiresAt?: string;
+  data?: string;
+  validTo?: number;
 }
 
 export function MyClaimsTab() {
-  const [userClaims, setUserClaims] = useState<UserClaim[]>([
-    {
-      topicId: 1,
-      topicName: "KYC Verification",
-      issuer: "0x1111111111111111111111111111111111111111",
-      issuedAt: new Date(Date.now() - 86400000).toISOString(),
-      signature: "0xabcdef...",
-      isValid: true,
-      expiresAt: new Date(Date.now() + 365 * 86400000).toISOString(),
-    },
-  ]);
+  const [userClaims, setUserClaims] = useState<UserClaim[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
+  const { address: currentUser } = useAccount();
+
+  const {
+    data: rawClaims,
+    isLoading,
+    refetch: refetchAllClaims,
+  } = useContractRead({
+    address: IdentityContractAddress,
+    abi: IdentityABI,
+    functionName: "getAllClaims",
+    watch: true,
+  });
+
+  const { data: topicData } = useContractRead({
+    address: ClaimTopicAddress,
+    abi: ClaimTopicsABI,
+    functionName: "getClaimTopicsWithNamesAndDescription",
+    watch: true,
+  });
+
+  useEffect(() => {
+    const fetchUserClaims = async () => {
+      if (!rawClaims || !topicData) {
+        setUserClaims([]);
+        return;
+      }
+
+      const [topics, issuers, signatures, datas, validsTo] = rawClaims as [
+        bigint[],
+        string[],
+        string[],
+        string[],
+        bigint[]
+      ];
+
+      const [topicIds, topicNames] = topicData as [bigint[], string[]];
+
+      const enrichedClaims = await Promise.all(
+        topics.map(async (topic, index) => {
+          const topicId = topic.toString();
+          const validTo = Number(validsTo[index]);
+
+          // Get topic name
+          const topicIndex = topicIds.findIndex(id => id.toString() === topicId);
+          const topicName = topicIndex >= 0 ? topicNames[topicIndex] : `Topic ${topicId}`;
+
+          // Check validity
+          let isValid: boolean = false;
+          try {
+            const valid = await readContract({
+              address: IdentityContractAddress,
+              abi: IdentityABI,
+              functionName: "isClaimValid",
+              args: [topic],
+            });
+            isValid = valid as boolean;
+          } catch (e) {
+            console.error(`Validity check failed for topic ${topicId}`, e);
+          }
+
+          // Get issuer name
+          let issuerName = issuers[index];
+          try {
+            const name = await readContract({
+              address: TrustedIssuersRegistryAddress,
+              abi: TrustedIssuersABI,
+              functionName: "getIssuerName",
+              args: [issuers[index]],
+            });
+            issuerName = (name as string) !== "Not Trusted Issuer" ? (name as string) : issuers[index];
+          } catch (e) {
+            // Use address if name lookup fails
+          }
+
+          return {
+            topicId,
+            topicName,
+            issuer: issuerName,
+            signature: signatures[index],
+            data: hexToString(datas[index] as `0x${string}`),
+            validTo,
+            issuedAt: new Date(validTo * 1000 - 365 * 24 * 60 * 60 * 1000).toISOString(), // estimated
+            expiresAt: new Date(validTo * 1000).toISOString(),
+            isValid,
+          };
+        })
+      );
+
+      setUserClaims(enrichedClaims);
+    };
+
+    fetchUserClaims();
+  }, [rawClaims, topicData]);
 
   const handleRefreshClaims = async () => {
     setIsRefreshing(true);
 
     try {
-      // Simulate fetching claims from blockchain
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      toast({
-        title: "Claims Refreshed",
-        description: "Successfully fetched latest claims from blockchain",
-        variant: "default",
-      });
+      const result = await refetchAllClaims();
+      if (result.status === "success") {
+        toast({
+          title: "Claims Refreshed",
+          description: "Successfully fetched latest claims from blockchain",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Refresh Failed",
+          description: "Failed to fetch claims. Please try again.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
         title: "Refresh Failed",
@@ -186,11 +287,20 @@ export function MyClaimsTab() {
               )}
 
               <div>
-                <h4 className="text-sm font-medium mb-1">Signature</h4>
+                  <h4 className="text-sm font-medium mb-1">Signature</h4>
                 <Badge variant="outline" className="text-xs font-mono">
-                  {claim.signature}
+                  {claim.signature.slice(0, 10)}...{claim.signature.slice(-8)}
                 </Badge>
               </div>
+
+              {claim.data && (
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Claim Data</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {claim.data}
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-2 pt-2">
                 <Button

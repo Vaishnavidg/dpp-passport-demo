@@ -8,10 +8,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Users, FileText, Coins } from "lucide-react";
+import { Shield, Users, Coins } from "lucide-react";
 import { ClaimTopicsTab } from "./ClaimTopicsTab";
 import { TrustedIssuersTab } from "./TrustedIssuersTab";
-import { IssueClaimsTab } from "./IssueClaimsTab";
 import { TokenManagerTab } from "./TokenManagerTab";
 
 export function AdminDashboard() {
@@ -39,18 +38,14 @@ export function AdminDashboard() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-4 bg-secondary/50">
+        <TabsList className="grid w-full grid-cols-3 bg-secondary/50">
           <TabsTrigger value="claim-topics" className="gap-2">
-            <FileText className="h-4 w-4" />
+            <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Claim Topics</span>
           </TabsTrigger>
           <TabsTrigger value="trusted-issuers" className="gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Trusted Issuers</span>
-          </TabsTrigger>
-          <TabsTrigger value="issue-claims" className="gap-2">
-            <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">Issue Claims</span>
           </TabsTrigger>
           <TabsTrigger value="token-manager" className="gap-2">
             <Coins className="h-4 w-4" />
@@ -64,10 +59,6 @@ export function AdminDashboard() {
 
         <TabsContent value="trusted-issuers">
           <TrustedIssuersTab />
-        </TabsContent>
-
-        <TabsContent value="issue-claims">
-          <IssueClaimsTab />
         </TabsContent>
 
         <TabsContent value="token-manager">

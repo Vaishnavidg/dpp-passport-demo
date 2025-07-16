@@ -3,12 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 interface NavigationProps {
-  currentPage: "overview" | "admin" | "user";
-  onPageChange: (page: "overview" | "admin" | "user") => void;
+  currentPage: "overview" | "admin" | "user" | "issuer";
+  onPageChange: (page: "overview" | "admin" | "user" | "issuer") => void;
   isConnected: boolean;
   onConnect: () => void;
   address?: string;
   isAdmin?: boolean;
+  isTrustedIssuer?: boolean;
 }
 
 export const Navigation = ({
@@ -18,6 +19,7 @@ export const Navigation = ({
   onConnect,
   address,
   isAdmin = false,
+  isTrustedIssuer = false,
 }: NavigationProps) => {
   return (
     <nav className="border-b bg-card">
@@ -51,6 +53,17 @@ export const Navigation = ({
                 </Button>
               )}
 
+              {isConnected && isTrustedIssuer && (
+                <Button
+                  variant={currentPage === "issuer" ? "default" : "ghost"}
+                  onClick={() => onPageChange("issuer")}
+                  size="sm"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Issuer
+                </Button>
+              )}
+
               {isConnected && (
                 <Button
                   variant={currentPage === "user" ? "default" : "ghost"}
@@ -73,6 +86,14 @@ export const Navigation = ({
                     className="bg-compliance text-compliance-foreground"
                   >
                     Admin
+                  </Badge>
+                )}
+                {isTrustedIssuer && !isAdmin && (
+                  <Badge
+                    variant="outline"
+                    className="bg-primary/20 text-primary-foreground"
+                  >
+                    Issuer
                   </Badge>
                 )}
                 <p className="text-sm font-mono text-gray-800">
