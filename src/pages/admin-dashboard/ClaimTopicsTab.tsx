@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Plus, FileText, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { MOCK_DATA, EDUCATIONAL_MESSAGES } from "../../lib/config";
 import { writeContract } from "@wagmi/core";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
 import { useContractRead } from "wagmi";

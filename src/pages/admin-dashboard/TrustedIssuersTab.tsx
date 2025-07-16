@@ -238,7 +238,7 @@ export function TrustedIssuersTab() {
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">{issuer.name}</h4>
                     <Badge variant="outline" className="text-xs">
-                      {formatAddress(issuer.address)}
+                      {issuer.address}
                     </Badge>
                   </div>
 

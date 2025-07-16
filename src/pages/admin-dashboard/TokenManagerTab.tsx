@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -18,8 +18,15 @@ import {
   Unlock,
   Info,
   AlertTriangle,
+  TrendingUp,
+  Hash,
+  DollarSign,
+  Shield,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { writeContract, readContract } from "@wagmi/core";
+import ERC3643TokenABI from "../../../contracts-abi-files/ERC3643TokenABI.json";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface TokenTransaction {
   type: "mint" | "transfer" | "freeze" | "unfreeze";
@@ -28,6 +35,15 @@ interface TokenTransaction {
   timestamp: string;
   status: "success" | "failed";
 }
+
+interface TokenDetails {
+  name: string;
+  symbol: string;
+  totalSupply: string;
+  decimals: number;
+}
+
+const ERC3643TokenAddress = "0x86546c1C71833682D2DFbbDfDadE768Ea0bc6EFd";
 
 export function TokenManagerTab() {
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
@@ -38,8 +54,62 @@ export function TokenManagerTab() {
     amount: "",
   });
   const [freezeForm, setFreezeForm] = useState({ address: "" });
+  const [tokenDetails, setTokenDetails] = useState<TokenDetails | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const { toast } = useToast();
+  const [freezeAddress, setFreezeAddress] = useState("");
+  const [freezeAction, setFreezeAction] = useState("freeze");
+
+  // Fetch token details on component mount
+  useEffect(() => {
+    fetchTokenDetails();
+  }, []);
+
+  const fetchTokenDetails = async () => {
+    try {
+      setIsLoadingDetails(true);
+
+      const [name, symbol, totalSupply, decimals] = await Promise.all([
+        readContract({
+          address: ERC3643TokenAddress,
+          abi: ERC3643TokenABI,
+          functionName: "name",
+        }),
+        readContract({
+          address: ERC3643TokenAddress,
+          abi: ERC3643TokenABI,
+          functionName: "symbol",
+        }),
+        readContract({
+          address: ERC3643TokenAddress,
+          abi: ERC3643TokenABI,
+          functionName: "totalSupply",
+        }),
+        readContract({
+          address: ERC3643TokenAddress,
+          abi: ERC3643TokenABI,
+          functionName: "decimals",
+        }),
+      ]);
+
+      setTokenDetails({
+        name: name as string,
+        symbol: symbol as string,
+        totalSupply: (totalSupply as bigint).toString(),
+        decimals: decimals as number,
+      });
+    } catch (error) {
+      console.error("Failed to fetch token details:", error);
+      toast({
+        title: "Failed to load token details",
+        description: "Could not fetch contract information",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
 
   const handleMintTokens = async () => {
     if (!mintForm.address || !mintForm.amount) {
@@ -54,30 +124,34 @@ export function TokenManagerTab() {
     setIsProcessing(true);
 
     try {
-      // Simulate blockchain transaction
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const transaction: TokenTransaction = {
-        type: "mint",
-        userAddress: mintForm.address,
-        amount: mintForm.amount,
-        timestamp: new Date().toISOString(),
-        status: "success",
-      };
-
-      setTransactions([transaction, ...transactions]);
-      setMintForm({ address: "", amount: "" });
-
-      toast({
-        title: "Tokens Minted Successfully",
-        description: `${
-          mintForm.amount
-        } tokens minted to ${mintForm.address.slice(
-          0,
-          6
-        )}...${mintForm.address.slice(-4)}`,
-        variant: "default",
+      const result = await writeContract({
+        address: ERC3643TokenAddress,
+        abi: ERC3643TokenABI,
+        functionName: "mint",
+        args:
+          mintForm.address && mintForm.amount
+            ? [mintForm.address, mintForm.amount]
+            : undefined,
+        enabled: !!mintForm.address && mintForm.amount,
       });
+      if (result) {
+        console.log("result", result);
+        toast({
+          title: "Tokens Minted Successfully",
+          description: `${
+            mintForm.amount
+          } tokens minted to ${mintForm.address.slice(
+            0,
+            6
+          )}...${mintForm.address.slice(-4)}`,
+          variant: "default",
+        });
+
+        // Refresh token details after minting
+        await fetchTokenDetails();
+      }
+
+      setMintForm({ address: "", amount: "" });
     } catch (error) {
       toast({
         title: "Minting Failed",
@@ -167,6 +241,49 @@ export function TokenManagerTab() {
     } catch (error) {
       toast({
         title: "Freeze Failed",
+        description: "Transaction failed. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFreezeAddress = async () => {
+    if (!freezeAddress) {
+      toast({
+        title: "Missing Address",
+        description: "Please provide an address to freeze/unfreeze",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const result = await writeContract({
+        address: ERC3643TokenAddress,
+        abi: ERC3643TokenABI,
+        functionName: "setAddressFrozen",
+        args: [freezeAddress, freezeAction === "freeze"],
+      });
+
+      if (result) {
+        console.log("result", result);
+        toast({
+          title: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)} Success`,
+          description: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)}ed address ${freezeAddress.slice(0, 6)}...${freezeAddress.slice(-4)}`,
+          variant: "default",
+        });
+        setFreezeAddress("");
+        setFreezeAction("freeze");
+      }
+    } catch (error) {
+      toast({
+        title: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)} Failed`,
         description: "Transaction failed. Please try again.",
         variant: "destructive",
       });
@@ -286,6 +403,117 @@ export function TokenManagerTab() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="bg-gradient-card shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Token Details
+                </CardTitle>
+                <CardDescription>
+                  ERC-3643 compliant token contract information
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingDetails ? (
+                  <div className="space-y-3">
+                    <div className="h-4 bg-secondary/50 rounded animate-pulse" />
+                    <div className="h-4 bg-secondary/50 rounded animate-pulse" />
+                    <div className="h-4 bg-secondary/50 rounded animate-pulse" />
+                    <div className="h-4 bg-secondary/50 rounded animate-pulse" />
+                  </div>
+                ) : tokenDetails ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Hash className="h-4 w-4 text-primary" />
+                          <Label className="text-sm font-medium">
+                            Token Name
+                          </Label>
+                        </div>
+                        <p className="text-sm text-muted-foreground font-mono bg-secondary/30 p-2 rounded">
+                          {tokenDetails.name}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-primary" />
+                          <Label className="text-sm font-medium">Symbol</Label>
+                        </div>
+                        <p className="text-sm text-muted-foreground font-mono bg-secondary/30 p-2 rounded">
+                          {tokenDetails.symbol}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Coins className="h-4 w-4 text-primary" />
+                          <Label className="text-sm font-medium">
+                            Total Supply
+                          </Label>
+                        </div>
+                        <p className="text-sm text-muted-foreground font-mono bg-secondary/30 p-2 rounded">
+                          {parseFloat(tokenDetails.totalSupply)}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Info className="h-4 w-4 text-primary" />
+                          <Label className="text-sm font-medium">
+                            Decimals
+                          </Label>
+                        </div>
+                        <p className="text-sm text-muted-foreground font-mono bg-secondary/30 p-2 rounded">
+                          {tokenDetails.decimals}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Hash className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-medium">
+                          Contract Address
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono bg-secondary/30 p-2 rounded break-all">
+                        {ERC3643TokenAddress}
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={fetchTokenDetails}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={isLoadingDetails}
+                    >
+                      Refresh Details
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-destructive" />
+                    <p className="text-sm text-muted-foreground">
+                      Failed to load token details
+                    </p>
+                    <Button
+                      onClick={fetchTokenDetails}
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
@@ -373,56 +601,46 @@ export function TokenManagerTab() {
             <Card className="bg-gradient-card shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Snowflake className="h-5 w-5" />
-                  Freeze User
+                  <Shield className="h-5 w-5" />
+                  Address Management
                 </CardTitle>
                 <CardDescription>
-                  Freeze or unfreeze user token operations
+                  Freeze/unfreeze addresses and manage token operations
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
-                  <p className="text-sm text-muted-foreground">
-                    Frozen users cannot transfer or receive tokens until
-                    unfrozen. Use for compliance violations or suspicious
-                    activity.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="freeze-address">User Address</Label>
+                    <Label htmlFor="freeze-address">Address to Freeze/Unfreeze</Label>
                     <Input
                       id="freeze-address"
                       placeholder="0x..."
-                      value={freezeForm.address}
-                      onChange={(e) =>
-                        setFreezeForm({
-                          ...freezeForm,
-                          address: e.target.value,
-                        })
-                      }
+                      value={freezeAddress}
+                      onChange={(e) => setFreezeAddress(e.target.value)}
                     />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleFreezeUser}
-                      variant="destructive"
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? "Processing..." : "Freeze User"}
-                    </Button>
-                    <Button
-                      onClick={handleFreezeUser}
-                      variant="success"
-                      disabled={isProcessing}
-                    >
-                      Unfreeze User
-                    </Button>
+                  <div>
+                    <Label htmlFor="freeze-status">Action</Label>
+                    <Select value={freezeAction} onValueChange={setFreezeAction}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select action" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="freeze">Freeze Address</SelectItem>
+                        <SelectItem value="unfreeze">Unfreeze Address</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
+                
+                <Button
+                  onClick={handleFreezeAddress}
+                  className="w-full"
+                  variant="outline"
+                  disabled={!freezeAddress}
+                >
+                  {freezeAction === "freeze" ? "Freeze Address" : "Unfreeze Address"}
+                </Button>
               </CardContent>
             </Card>
           </div>

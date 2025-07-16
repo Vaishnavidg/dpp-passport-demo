@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import {
   Card,
@@ -8,17 +9,61 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useAccount } from "wagmi";
-import { User, CheckCircle, Info, ExternalLink } from "lucide-react";
+import {
+  useAccount,
+  useContractRead,
+  useNetwork,
+  usePublicClient,
+  useWalletClient,
+} from "wagmi";
+import {
+  User,
+  CheckCircle,
+  Info,
+  ExternalLink,
+  AlertTriangle,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EDUCATIONAL_MESSAGES } from "@/lib/config";
+import { writeContract, readContract } from "@wagmi/core";
+import TokenFactoryABI from "../../../contracts-abi-files/TokenFactoryABI.json";
+import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
+import { IdentityBytecode } from "../../../contracts-abi-files/Identity_Bytecode.js";
+import IdentityRegistryABI from "../../../contracts-abi-files/IdentityRegistryABI.json";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { hardhat } from "viem/chains";
+import { Label } from "@/components/ui/label.js";
+
+const TokenFactoryAddress = "0x014c819c9b01510C14d597ca19CDA699FE8C0BB1";
+const IdentityRegistryAddress = "0xF40E0600F296364Cde72b71A5a51869252B67c37";
 
 export function CreateIdentityTab() {
-  const [identityAddress, setIdentityAddress] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const { address } = useAccount();
   const { toast } = useToast();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+  const [countryCode, setCountryCode] = useState(0);
+  const { chain } = useNetwork();
+
+  const identityFromRegistry = useContractRead({
+    address: IdentityRegistryAddress,
+    abi: IdentityRegistryABI,
+    functionName: "identities",
+    args: [address],
+    watch: true,
+  });
+  const [identityAddress, setIdentityAddress] = useState<string | null>(
+    identityFromRegistry.data as string
+  );
 
   const handleDeployIdentity = async () => {
     if (!address) {
@@ -31,27 +76,43 @@ export function CreateIdentityTab() {
     }
 
     setIsDeploying(true);
+    setDeploymentError(null);
 
     try {
-      // Simulate identity contract deployment
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      // Generate a mock identity contract address
-      const mockIdentityAddress = `0x${Math.random()
-        .toString(16)
-        .slice(2, 42)
-        .padStart(40, "0")}`;
-      setIdentityAddress(mockIdentityAddress);
-
-      toast({
-        title: "Identity Created Successfully",
-        description: "Your identity contract has been deployed",
-        variant: "default",
+      // Deploy Identity contract using TokenFactory
+      const hash = await walletClient.deployContract({
+        abi: IdentityABI,
+        bytecode: IdentityBytecode,
+        account: address,
+        chain: chain,
       });
-    } catch (error) {
+
+      if (hash) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash: hash,
+        });
+        const contractAddress = receipt.contractAddress;
+        console.log("hash", hash);
+        setIdentityAddress(contractAddress);
+
+        toast({
+          title: "Identity Created Successfully",
+          description: `Identity contract deployed at ${contractAddress.slice(
+            0,
+            6
+          )}...${contractAddress.slice(-4)}`,
+          variant: "default",
+        });
+      }
+    } catch (error: any) {
+      console.error("Deployment error:", error);
+      const errorMessage =
+        error.message || "Failed to deploy identity contract";
+      setDeploymentError(errorMessage);
+
       toast({
         title: "Deployment Failed",
-        description: "Failed to deploy identity contract. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -63,26 +124,44 @@ export function CreateIdentityTab() {
     if (!identityAddress) return;
 
     try {
-      // Simulate connecting to identity
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setIsConnected(true);
-
-      toast({
-        title: "Identity Connected",
-        description: "Successfully connected to your identity contract",
-        variant: "default",
+      // Verify the identity contract exists and is accessible
+      const result = await writeContract({
+        address: IdentityRegistryAddress,
+        abi: IdentityRegistryABI,
+        functionName: "registerIdentity",
+        args: [address, identityAddress, countryCode],
+        enabled: !!address && identityAddress && countryCode,
       });
-    } catch (error) {
+      if (result) {
+        console.log("result", result);
+        setIsConnected(true);
+        toast({
+          title: "Identity Connected",
+          description: "Successfully connected to your identity contract",
+          variant: "default",
+        });
+      }
+    } catch (error: any) {
+      console.error("Connection error:", error);
       toast({
         title: "Connection Failed",
-        description: "Failed to connect to identity. Please try again.",
+        description:
+          "Failed to connect to identity. Please verify the contract address.",
         variant: "destructive",
       });
     }
   };
 
+  const registryStatus = useContractRead({
+    address: IdentityRegistryAddress,
+    abi: IdentityRegistryABI,
+    functionName: "isVerified",
+    args: [address],
+    watch: true,
+  });
+
   const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    return `${addr.slice(0, 8)}...${addr.slice(-4)}`;
   };
 
   return (
@@ -104,6 +183,15 @@ export function CreateIdentityTab() {
               {EDUCATIONAL_MESSAGES.IDENTITY_REQUIRED}
             </p>
           </div>
+
+          {deploymentError && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+              <p className="text-sm text-destructive">
+                <strong>Deployment Error:</strong> {deploymentError}
+              </p>
+            </div>
+          )}
 
           {!identityAddress ? (
             <div className="space-y-3">
@@ -153,17 +241,31 @@ export function CreateIdentityTab() {
                 </div>
               </div>
 
-              {!isConnected && (
-                <Button
-                  onClick={handleConnectIdentity}
-                  className="w-full"
-                  variant="default"
-                >
-                  Connect to Identity
-                </Button>
+              {!identityFromRegistry && (
+                <>
+                  <Label htmlFor="country">Country of Residence</Label>
+                  <Select
+                    onValueChange={(val) => setCountryCode(parseInt(val))}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select your country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="356">🇮🇳 India (356)</SelectItem>
+                      <SelectItem value="840">🇺🇸 USA (840)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleConnectIdentity}
+                    className="w-full"
+                    variant="default"
+                  >
+                    Connect to Identity
+                  </Button>
+                </>
               )}
 
-              {isConnected && (
+              {identityFromRegistry && (
                 <div className="p-4 rounded-lg border border-success bg-success/10">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-success" />
@@ -203,14 +305,16 @@ export function CreateIdentityTab() {
 
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
               <span className="text-sm">Identity Connected</span>
-              <Badge variant={isConnected ? "default" : "secondary"}>
-                {isConnected ? "Connected" : "Not Connected"}
+              <Badge variant={identityFromRegistry ? "default" : "secondary"}>
+                {identityFromRegistry ? "Connected" : "Not Connected"}
               </Badge>
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
               <span className="text-sm">Registry Status</span>
-              <Badge variant="secondary">Not Registered</Badge>
+              <Badge variant={registryStatus ? "default" : "secondary"}>
+                {registryStatus ? "Registered" : "Not Registered"}
+              </Badge>
             </div>
           </div>
 
@@ -218,12 +322,12 @@ export function CreateIdentityTab() {
             <div className="pt-4 border-t border-border">
               <Button variant="outline" className="w-full gap-2" asChild>
                 <a
-                  href={`https://etherscan.io/address/${identityAddress}`}
+                  href={`https://explorer-watr-testnet.cogitus.io/address/${identityAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  View on Etherscan
+                  View on Explorer
                 </a>
               </Button>
             </div>
