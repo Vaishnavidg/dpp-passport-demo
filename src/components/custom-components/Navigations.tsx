@@ -1,4 +1,4 @@
-import { Shield, Users, Coins, Settings, Wallet } from "lucide-react";
+import { Shield, Users, Coins, Settings, Wallet, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -69,17 +69,26 @@ export const Navigation = ({
               <div className="flex items-center space-x-2">
                 {isAdmin && (
                   <Badge
-                    variant="secondary"
+                    variant="outline"
                     className="bg-compliance text-compliance-foreground"
                   >
                     Admin
                   </Badge>
                 )}
-                <Badge variant="outline" className="font-mono text-xs">
-                  {address?.slice(0, 6)}...{address?.slice(-4)}
-                </Badge>
+                <p className="text-sm font-mono text-gray-800">
+                  {address.slice(0, 8)}...{address.slice(-6)}
+                </p>
+                <button
+                  onClick={onConnect}
+                  className="px-4 py-2 rounded-xl font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 shadow-sm transition-all duration-200 transform hover:scale-105 flex items-center"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Disconnect
+                </button>
               </div>
-            ) : (
+            ) : null}
+
+            {!isConnected && (
               <Button
                 onClick={onConnect}
                 className="bg-primary hover:bg-primary/90"

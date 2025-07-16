@@ -32,7 +32,7 @@ import {
 import { useContractRead, useSignMessage } from "wagmi";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
 
-const IdentityContractAddress = "0x2B30a59589df3C3679e1374ec4ae13d938f5621c";
+const IdentityContractAddress = "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978";
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 
 const generateClaimMessage = (

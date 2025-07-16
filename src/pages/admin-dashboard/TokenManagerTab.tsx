@@ -21,10 +21,12 @@ import {
   TrendingUp,
   Hash,
   DollarSign,
+  Shield,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { writeContract, readContract } from "@wagmi/core";
 import ERC3643TokenABI from "../../../contracts-abi-files/ERC3643TokenABI.json";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface TokenTransaction {
   type: "mint" | "transfer" | "freeze" | "unfreeze";
@@ -56,6 +58,8 @@ export function TokenManagerTab() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const { toast } = useToast();
+  const [freezeAddress, setFreezeAddress] = useState("");
+  const [freezeAction, setFreezeAction] = useState("freeze");
 
   // Fetch token details on component mount
   useEffect(() => {
@@ -237,6 +241,49 @@ export function TokenManagerTab() {
     } catch (error) {
       toast({
         title: "Freeze Failed",
+        description: "Transaction failed. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFreezeAddress = async () => {
+    if (!freezeAddress) {
+      toast({
+        title: "Missing Address",
+        description: "Please provide an address to freeze/unfreeze",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const result = await writeContract({
+        address: ERC3643TokenAddress,
+        abi: ERC3643TokenABI,
+        functionName: "setAddressFrozen",
+        args: [freezeAddress, freezeAction === "freeze"],
+      });
+
+      if (result) {
+        console.log("result", result);
+        toast({
+          title: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)} Success`,
+          description: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)}ed address ${freezeAddress.slice(0, 6)}...${freezeAddress.slice(-4)}`,
+          variant: "default",
+        });
+        setFreezeAddress("");
+        setFreezeAction("freeze");
+      }
+    } catch (error) {
+      toast({
+        title: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)} Failed`,
         description: "Transaction failed. Please try again.",
         variant: "destructive",
       });
@@ -554,56 +601,46 @@ export function TokenManagerTab() {
             <Card className="bg-gradient-card shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Snowflake className="h-5 w-5" />
-                  Freeze User
+                  <Shield className="h-5 w-5" />
+                  Address Management
                 </CardTitle>
                 <CardDescription>
-                  Freeze or unfreeze user token operations
+                  Freeze/unfreeze addresses and manage token operations
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
-                  <p className="text-sm text-muted-foreground">
-                    Frozen users cannot transfer or receive tokens until
-                    unfrozen. Use for compliance violations or suspicious
-                    activity.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="freeze-address">User Address</Label>
+                    <Label htmlFor="freeze-address">Address to Freeze/Unfreeze</Label>
                     <Input
                       id="freeze-address"
                       placeholder="0x..."
-                      value={freezeForm.address}
-                      onChange={(e) =>
-                        setFreezeForm({
-                          ...freezeForm,
-                          address: e.target.value,
-                        })
-                      }
+                      value={freezeAddress}
+                      onChange={(e) => setFreezeAddress(e.target.value)}
                     />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleFreezeUser}
-                      variant="destructive"
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? "Processing..." : "Freeze User"}
-                    </Button>
-                    <Button
-                      onClick={handleFreezeUser}
-                      variant="success"
-                      disabled={isProcessing}
-                    >
-                      Unfreeze User
-                    </Button>
+                  <div>
+                    <Label htmlFor="freeze-status">Action</Label>
+                    <Select value={freezeAction} onValueChange={setFreezeAction}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select action" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="freeze">Freeze Address</SelectItem>
+                        <SelectItem value="unfreeze">Unfreeze Address</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
+                
+                <Button
+                  onClick={handleFreezeAddress}
+                  className="w-full"
+                  variant="outline"
+                  disabled={!freezeAddress}
+                >
+                  {freezeAction === "freeze" ? "Freeze Address" : "Unfreeze Address"}
+                </Button>
               </CardContent>
             </Card>
           </div>
