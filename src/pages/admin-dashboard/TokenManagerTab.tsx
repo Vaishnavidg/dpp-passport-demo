@@ -26,7 +26,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { writeContract, readContract } from "@wagmi/core";
 import ERC3643TokenABI from "../../../contracts-abi-files/ERC3643TokenABI.json";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TokenTransaction {
   type: "mint" | "transfer" | "freeze" | "unfreeze";
@@ -43,7 +49,7 @@ interface TokenDetails {
   decimals: number;
 }
 
-const ERC3643TokenAddress = "0x86546c1C71833682D2DFbbDfDadE768Ea0bc6EFd";
+const ERC3643TokenAddress = "0xe313673e15aF30fd6E21C341554553E1D11CCb74";
 
 export function TokenManagerTab() {
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
@@ -274,8 +280,14 @@ export function TokenManagerTab() {
       if (result) {
         console.log("result", result);
         toast({
-          title: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)} Success`,
-          description: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)}ed address ${freezeAddress.slice(0, 6)}...${freezeAddress.slice(-4)}`,
+          title: `${
+            freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)
+          } Success`,
+          description: `${
+            freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)
+          }ed address ${freezeAddress.slice(0, 6)}...${freezeAddress.slice(
+            -4
+          )}`,
           variant: "default",
         });
         setFreezeAddress("");
@@ -283,7 +295,9 @@ export function TokenManagerTab() {
       }
     } catch (error) {
       toast({
-        title: `${freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)} Failed`,
+        title: `${
+          freezeAction.charAt(0).toUpperCase() + freezeAction.slice(1)
+        } Failed`,
         description: "Transaction failed. Please try again.",
         variant: "destructive",
       });
@@ -611,7 +625,9 @@ export function TokenManagerTab() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="freeze-address">Address to Freeze/Unfreeze</Label>
+                    <Label htmlFor="freeze-address">
+                      Address to Freeze/Unfreeze
+                    </Label>
                     <Input
                       id="freeze-address"
                       placeholder="0x..."
@@ -621,25 +637,32 @@ export function TokenManagerTab() {
                   </div>
                   <div>
                     <Label htmlFor="freeze-status">Action</Label>
-                    <Select value={freezeAction} onValueChange={setFreezeAction}>
+                    <Select
+                      value={freezeAction}
+                      onValueChange={setFreezeAction}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select action" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="freeze">Freeze Address</SelectItem>
-                        <SelectItem value="unfreeze">Unfreeze Address</SelectItem>
+                        <SelectItem value="unfreeze">
+                          Unfreeze Address
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                
+
                 <Button
                   onClick={handleFreezeAddress}
                   className="w-full"
                   variant="outline"
                   disabled={!freezeAddress}
                 >
-                  {freezeAction === "freeze" ? "Freeze Address" : "Unfreeze Address"}
+                  {freezeAction === "freeze"
+                    ? "Freeze Address"
+                    : "Unfreeze Address"}
                 </Button>
               </CardContent>
             </Card>

@@ -26,7 +26,8 @@ import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.js
 
 const IdentityContractAddress = "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978";
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
-const TrustedIssuersRegistryAddress = "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
+const TrustedIssuersRegistryAddress =
+  "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
 
 interface UserClaim {
   topicId: string;
@@ -87,8 +88,11 @@ export function MyClaimsTab() {
           const validTo = Number(validsTo[index]);
 
           // Get topic name
-          const topicIndex = topicIds.findIndex(id => id.toString() === topicId);
-          const topicName = topicIndex >= 0 ? topicNames[topicIndex] : `Topic ${topicId}`;
+          const topicIndex = topicIds.findIndex(
+            (id) => id.toString() === topicId
+          );
+          const topicName =
+            topicIndex >= 0 ? topicNames[topicIndex] : `Topic ${topicId}`;
 
           // Check validity
           let isValid: boolean = false;
@@ -113,7 +117,10 @@ export function MyClaimsTab() {
               functionName: "getIssuerName",
               args: [issuers[index]],
             });
-            issuerName = (name as string) !== "Not Trusted Issuer" ? (name as string) : issuers[index];
+            issuerName =
+              (name as string) !== "Not Trusted Issuer"
+                ? (name as string)
+                : issuers[index];
           } catch (e) {
             // Use address if name lookup fails
           }
@@ -125,7 +132,9 @@ export function MyClaimsTab() {
             signature: signatures[index],
             data: hexToString(datas[index] as `0x${string}`),
             validTo,
-            issuedAt: new Date(validTo * 1000 - 365 * 24 * 60 * 60 * 1000).toISOString(), // estimated
+            issuedAt: new Date(
+              validTo * 1000 - 365 * 24 * 60 * 60 * 1000
+            ).toISOString(), // estimated
             expiresAt: new Date(validTo * 1000).toISOString(),
             isValid,
           };
@@ -204,7 +213,7 @@ export function MyClaimsTab() {
     }
 
     return (
-      <Badge className="bg-success/20 text-success-foreground">Valid</Badge>
+      <Badge className="bg-success/80 text-success-foreground">Valid</Badge>
     );
   };
 
@@ -258,7 +267,7 @@ export function MyClaimsTab() {
                 <div>
                   <h4 className="text-sm font-medium mb-1">Issuer</h4>
                   <Badge variant="outline" className="text-xs">
-                    {formatAddress(claim.issuer)}
+                    {claim.issuer}
                   </Badge>
                 </div>
                 <div>
@@ -287,18 +296,17 @@ export function MyClaimsTab() {
               )}
 
               <div>
-                  <h4 className="text-sm font-medium mb-1">Signature</h4>
+                <h4 className="text-sm font-medium mb-1">Signature</h4>
                 <Badge variant="outline" className="text-xs font-mono">
-                  {claim.signature.slice(0, 10)}...{claim.signature.slice(-8)}
+                  {claim.signature.slice(0, 20)}.........
+                  {claim.signature.slice(-10)}
                 </Badge>
               </div>
 
               {claim.data && (
                 <div>
                   <h4 className="text-sm font-medium mb-1">Claim Data</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {claim.data}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{claim.data}</p>
                 </div>
               )}
 
