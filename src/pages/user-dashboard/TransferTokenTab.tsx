@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -18,8 +18,15 @@ import {
   DollarSign,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAccount } from "wagmi";
+import { useAccount, useContractRead } from "wagmi";
 import { EDUCATIONAL_MESSAGES } from "@/lib/config";
+import ERC3643TokenABI from "../../../contracts-abi-files/ERC3643TokenABI.json";
+import ComplianceABI from "../../../contracts-abi-files/ComplianceABI.json";
+import { writeContract } from "@wagmi/core";
+import { formatUnits, isAddress, parseUnits } from "viem";
+
+const ERC3643TokenAddress = "0xe313673e15aF30fd6E21C341554553E1D11CCb74";
+const ComplianceAddress = "0xB47A318fEEFBc853Cd3a15e1Ad4e1f4326546bb0";
 
 interface TokenTransfer {
   to: string;
@@ -33,11 +40,62 @@ export function TransferTokenTab() {
   const [transferForm, setTransferForm] = useState({ to: "", amount: "" });
   const [transfers, setTransfers] = useState<TokenTransfer[]>([]);
   const [isTransferring, setIsTransferring] = useState(false);
-  const [tokenBalance] = useState(150); // Mock token balance
+  const [errorMessage, setErrorMessage] = useState("");
   const { address } = useAccount();
   const { toast } = useToast();
 
+  const Balance = useContractRead({
+    address: ERC3643TokenAddress,
+    abi: ERC3643TokenABI,
+    functionName: "balanceOf",
+    args: [address],
+    watch: true,
+  });
+  const tokenBalance = Number(Balance.data);
+
+  const Symbol = useContractRead({
+    address: ERC3643TokenAddress,
+    abi: ERC3643TokenABI,
+    functionName: "symbol",
+    watch: true,
+  });
+
+  const tokenSymbol = Symbol.data;
+
+  const Name = useContractRead({
+    address: ERC3643TokenAddress,
+    abi: ERC3643TokenABI,
+    functionName: "name",
+    watch: true,
+  });
+
+  const tokenName = Name.data;
+  console.log(tokenName);
+
+  const Max = useContractRead({
+    address: ComplianceAddress,
+    abi: ComplianceABI,
+    functionName: "MAX_TRANSFER_LIMIT",
+    watch: true,
+  });
+
+  const Maximumlimit = Max.data
+    ? parseFloat(formatUnits(Max.data as bigint, 18))
+    : 0;
+
+  useEffect(() => {
+    const savedTransfers = localStorage.getItem("transfers");
+    if (savedTransfers) {
+      setTransfers(JSON.parse(savedTransfers));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("transfers", JSON.stringify(transfers));
+  }, [transfers]);
+
   const handleTransfer = async () => {
+    setErrorMessage("");
     if (!transferForm.to || !transferForm.amount) {
       toast({
         title: "Missing Information",
@@ -65,17 +123,52 @@ export function TransferTokenTab() {
       });
       return;
     }
+    // if (amount > Maximumlimit) {
+    //   toast({
+    //     title: "Amount exceeds max transfer limit",
+    //     description: `Max allowed is ${Maximumlimit} tokens`,
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
+    if (!isAddress(transferForm.to)) {
+      toast({
+        title: "Invalid address",
+        description: "Please enter a valid Ethereum address",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsTransferring(true);
 
     try {
-      // Simulate compliance checks
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // const amountInWei = parseUnits(transferForm.amount, 18); // <-- FIX
 
-      // Simulate random compliance failure for demo
-      const complianceCheck = Math.random() > 0.3; // 70% success rate for demo
+      const result = await writeContract({
+        address: ERC3643TokenAddress,
+        abi: ERC3643TokenABI,
+        functionName: "transfer",
+        args: [transferForm.to, transferForm.amount],
+        enabled: transferForm && address,
+      });
+      if (result) {
+        console.log("result", result);
+        setTransferForm({ to: "", amount: "" });
+        const transfer: TokenTransfer = {
+          to: transferForm.to,
+          amount: transferForm.amount,
+          timestamp: new Date().toISOString(),
+          status: "success",
+        };
+        setTransfers([transfer, ...transfers]);
 
-      if (!complianceCheck) {
+        toast({
+          title: "Transfer Successful",
+          description: `${amount} tokens transferred successfully`,
+          variant: "default",
+        });
+      } else {
         const transfer: TokenTransfer = {
           to: transferForm.to,
           amount: transferForm.amount,
@@ -85,33 +178,14 @@ export function TransferTokenTab() {
         };
 
         setTransfers([transfer, ...transfers]);
-
-        toast({
-          title: "Transfer Blocked",
-          description: EDUCATIONAL_MESSAGES.TRANSFER_BLOCKED,
-          variant: "destructive",
-        });
-      } else {
-        // Simulate successful transfer
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        const transfer: TokenTransfer = {
-          to: transferForm.to,
-          amount: transferForm.amount,
-          timestamp: new Date().toISOString(),
-          status: "success",
-        };
-
-        setTransfers([transfer, ...transfers]);
-        setTransferForm({ to: "", amount: "" });
-
-        toast({
-          title: "Transfer Successful",
-          description: `${amount} tokens transferred successfully`,
-          variant: "default",
-        });
       }
     } catch (error) {
+      console.log("error", error);
+      const errorMessage =
+        error?.shortMessage ||
+        error?.message ||
+        "Transfer failed. Please check compliance or input values.";
+      setErrorMessage(errorMessage);
       toast({
         title: "Transfer Failed",
         description: "Transaction failed. Please try again.",
@@ -140,14 +214,13 @@ export function TransferTokenTab() {
         <Card className="bg-gradient-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Token Balance
+              {tokenName?.toString() || ""} Balance
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-center">
               <div className="text-3xl font-bold text-primary mb-2">
-                {tokenBalance}
+                {tokenBalance} {tokenSymbol?.toString() || ""}
               </div>
               <p className="text-sm text-muted-foreground">
                 ERC-3643 Compliant Tokens
@@ -200,7 +273,7 @@ export function TransferTokenTab() {
                   }
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Maximum: {tokenBalance} tokens
+                  Maximum: {Maximumlimit} tokens per transfer
                 </p>
               </div>
 
@@ -208,10 +281,22 @@ export function TransferTokenTab() {
                 onClick={handleTransfer}
                 className="w-full"
                 variant="default"
-                disabled={isTransferring || !address}
+                disabled={
+                  isTransferring ||
+                  !address ||
+                  !transferForm.to ||
+                  !transferForm.amount ||
+                  isNaN(Number(transferForm.amount)) ||
+                  Number(transferForm.amount) <= 0
+                }
               >
                 {isTransferring ? "Processing Transfer..." : "Transfer Tokens"}
               </Button>
+              {errorMessage && (
+                <p className="text-sm text-red-500 text-center">
+                  {errorMessage}
+                </p>
+              )}
 
               {!address && (
                 <p className="text-sm text-muted-foreground text-center">

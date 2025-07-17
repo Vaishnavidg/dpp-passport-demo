@@ -22,6 +22,7 @@ import {
   Info,
   ExternalLink,
   AlertTriangle,
+  Copy,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EDUCATIONAL_MESSAGES } from "@/lib/config";
@@ -41,7 +42,7 @@ import { hardhat } from "viem/chains";
 import { Label } from "@/components/ui/label.js";
 
 const TokenFactoryAddress = "0x014c819c9b01510C14d597ca19CDA699FE8C0BB1";
-const IdentityRegistryAddress = "0xF40E0600F296364Cde72b71A5a51869252B67c37";
+const IdentityRegistryAddress = "0x9e1EFE110aC3615ad3B669CC6a424e24e41bFd05";
 
 export function CreateIdentityTab() {
   const [isDeploying, setIsDeploying] = useState(false);
@@ -61,8 +62,14 @@ export function CreateIdentityTab() {
     args: [address],
     watch: true,
   });
+
+  // Check if the identity address is valid (not zero address)
+  const isValidIdentityAddress =
+    identityFromRegistry.data &&
+    identityFromRegistry.data !== "0x0000000000000000000000000000000000000000";
+
   const [identityAddress, setIdentityAddress] = useState<string | null>(
-    identityFromRegistry.data as string
+    isValidIdentityAddress ? (identityFromRegistry.data as string) : null
   );
 
   const handleDeployIdentity = async () => {
@@ -159,9 +166,27 @@ export function CreateIdentityTab() {
     args: [address],
     watch: true,
   });
+  console.log("registryStatus", registryStatus.data);
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 8)}...${addr.slice(-4)}`;
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Address Copied",
+        description: "Address has been copied to clipboard",
+        variant: "default",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy address to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -235,13 +260,23 @@ export function CreateIdentityTab() {
                   <p>
                     <strong>Contract Address:</strong>
                   </p>
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {formatAddress(identityAddress)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {formatAddress(identityAddress)}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(identityAddress)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              {!identityFromRegistry && (
+              {!isValidIdentityAddress && (
                 <>
                   <Label htmlFor="country">Country of Residence</Label>
                   <Select
@@ -265,7 +300,7 @@ export function CreateIdentityTab() {
                 </>
               )}
 
-              {identityFromRegistry && (
+              {isValidIdentityAddress && (
                 <div className="p-4 rounded-lg border border-success bg-success/10">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-success" />
@@ -296,6 +331,25 @@ export function CreateIdentityTab() {
               </Badge>
             </div>
 
+            {address && (
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
+                <span className="text-sm">Wallet Address</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {formatAddress(address)}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(address)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
               <span className="text-sm">Identity Contract</span>
               <Badge variant={identityAddress ? "default" : "secondary"}>
@@ -305,15 +359,15 @@ export function CreateIdentityTab() {
 
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
               <span className="text-sm">Identity Connected</span>
-              <Badge variant={identityFromRegistry ? "default" : "secondary"}>
-                {identityFromRegistry ? "Connected" : "Not Connected"}
+              <Badge variant={isValidIdentityAddress ? "default" : "secondary"}>
+                {isValidIdentityAddress ? "Connected" : "Not Connected"}
               </Badge>
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
               <span className="text-sm">Registry Status</span>
-              <Badge variant={registryStatus ? "default" : "secondary"}>
-                {registryStatus ? "Registered" : "Not Registered"}
+              <Badge variant={registryStatus.data ? "default" : "secondary"}>
+                {registryStatus.data ? "Registered" : "Not Registered"}
               </Badge>
             </div>
           </div>

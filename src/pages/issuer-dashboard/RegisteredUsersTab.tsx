@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from "react";
 import {
   Card,
@@ -9,14 +8,22 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, User, FileText, RefreshCw, CheckCircle, Clock } from "lucide-react";
+import {
+  Users,
+  User,
+  FileText,
+  RefreshCw,
+  CheckCircle,
+  Clock,
+  Copy,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useContractRead, useAccount } from "wagmi";
 import { readContract } from "@wagmi/core";
 import IdentityRegistryABI from "../../../contracts-abi-files/IdentityRegistryABI.json";
 import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
 
-const IdentityRegistryAddress = "0x8D8f2d83bC5d6aB4Bf4A1F8f7b92b6e3A2f4c8e1"; // Replace with actual address
+const IdentityRegistryAddress = "0x9e1EFE110aC3615ad3B669CC6a424e24e41bFd05";
 
 interface RegisteredUser {
   walletAddress: string;
@@ -28,50 +35,45 @@ interface RegisteredUser {
 }
 
 export function RegisteredUsersTab() {
-  const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
+  // const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { address } = useAccount();
   const { address: currentUser } = useAccount();
 
-  // Mock data for demonstration - replace with actual contract calls
-  const mockUsers: RegisteredUser[] = [
-    {
-      walletAddress: "0x1234567890123456789012345678901234567890",
-      identityAddress: "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978",
-      countryCode: "US",
-      claimsCount: 2,
-      isKYCCompleted: true,
-      registrationDate: new Date(Date.now() - 86400000 * 30).toISOString(),
-    },
-    {
-      walletAddress: "0x2345678901234567890123456789012345678901",
-      identityAddress: "0xb13B97C9DBF8060d54FFGE2f6571e6fF6C7d8989",
-      countryCode: "UK",
-      claimsCount: 1,
-      isKYCCompleted: false,
-      registrationDate: new Date(Date.now() - 86400000 * 15).toISOString(),
-    },
-    {
-      walletAddress: "0x3456789012345678901234567890123456789012",
-      identityAddress: "0xc24C08E10EC9071e55GGDF3f7682f7fF7D8e9A90",
-      countryCode: "DE",
-      claimsCount: 3,
-      isKYCCompleted: true,
-      registrationDate: new Date(Date.now() - 86400000 * 7).toISOString(),
-    },
-  ];
+  const UsersData = useContractRead({
+    address: IdentityRegistryAddress,
+    abi: IdentityRegistryABI,
+    functionName: "getAllUsers",
+    watch: true,
+  });
 
-  useEffect(() => {
-    // Initialize with mock data
-    setRegisteredUsers(mockUsers);
-  }, []);
+  const registeredUsers: RegisteredUser[] = useMemo(() => {
+    if (
+      Array.isArray(UsersData.data) &&
+      UsersData.data.length === 3 &&
+      Array.isArray(UsersData.data[0])
+    ) {
+      const [wallets, identities, countries] = UsersData.data;
+
+      return wallets.map((wallet: string, index: number) => ({
+        walletAddress: wallet,
+        identityAddress: identities[index],
+        countryCode: countries[index]?.toString() || "N/A",
+        claimsCount: 0, // You can update this later by reading Identity contract
+        isKYCCompleted: false, // You can dynamically check this using isClaimValid
+        registrationDate: new Date().toISOString(), // Optional placeholder
+      }));
+    }
+    return [];
+  }, [UsersData.data]);
 
   const handleRefreshUsers = async () => {
     setIsLoading(true);
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       toast({
         title: "Users Refreshed",
         description: "Successfully fetched latest user registrations",
@@ -105,6 +107,23 @@ export function RegisteredUsersTab() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Address Copied",
+        description: "Address has been copied to clipboard",
+        variant: "default",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy address to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getKYCStatusBadge = (isCompleted: boolean) => {
     return isCompleted ? (
       <Badge className="bg-success/20 text-success-foreground">
@@ -134,9 +153,7 @@ export function RegisteredUsersTab() {
           disabled={isLoading}
           className="gap-2"
         >
-          <RefreshCw
-            className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-          />
+          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -160,15 +177,37 @@ export function RegisteredUsersTab() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium mb-1">Wallet Address</h4>
-                  <Badge variant="outline" className="text-xs font-mono">
-                    {formatAddress(user.walletAddress)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs font-mono">
+                      {formatAddress(user.walletAddress)}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(user.walletAddress)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium mb-1">Identity Contract</h4>
-                  <Badge variant="outline" className="text-xs font-mono">
-                    {formatAddress(user.identityAddress)}
-                  </Badge>
+                  <h4 className="text-sm font-medium mb-1">
+                    Identity Contract
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs font-mono">
+                      {formatAddress(user.identityAddress)}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(user.identityAddress)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -197,11 +236,11 @@ export function RegisteredUsersTab() {
                   <FileText className="h-4 w-4" />
                   View Details
                 </Button>
-                <Button 
-                  variant="default" 
+                <Button
+                  variant="default"
                   size="sm"
                   className="gap-2"
-                  disabled={!user.isKYCCompleted}
+                  disabled={user.isKYCCompleted}
                 >
                   <CheckCircle className="h-4 w-4" />
                   Issue Claim
