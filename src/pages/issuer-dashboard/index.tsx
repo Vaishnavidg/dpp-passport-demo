@@ -11,9 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Shield, Users, FileText } from "lucide-react";
 import { IssueClaimsTab } from "./IssueClaimsTab";
 import { RegisteredUsersTab } from "./RegisteredUsersTab";
+import { ClaimRequestsTab } from "./ClaimRequestsTab";
 
 export function IssuerDashboard() {
-  const [activeTab, setActiveTab] = useState("registered-users");
+  const [activeTab, setActiveTab] = useState("claim-requests");
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -37,16 +38,24 @@ export function IssuerDashboard() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-2 bg-secondary/50">
+        <TabsList className="grid w-full grid-cols-3 bg-secondary/50">
+          <TabsTrigger value="claim-requests" className="gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Requests</span>
+          </TabsTrigger>
           <TabsTrigger value="registered-users" className="gap-2">
             <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Registered Users</span>
+            <span className="hidden sm:inline">Users</span>
           </TabsTrigger>
           <TabsTrigger value="issue-claims" className="gap-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Issue Claims</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="claim-requests">
+          <ClaimRequestsTab />
+        </TabsContent>
 
         <TabsContent value="registered-users">
           <RegisteredUsersTab />

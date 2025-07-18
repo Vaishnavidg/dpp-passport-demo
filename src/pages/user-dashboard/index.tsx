@@ -13,6 +13,7 @@ import { CreateIdentityTab } from "./CreateIdentityTab";
 import { RegisterIdentityTab } from "./RegisterIdentityTab";
 import { MyClaimsTab } from "./MyClaimsTab";
 import { TransferTokenTab } from "./TransferTokenTab";
+import { ClaimRequestsTab } from "./ClaimRequestsTab";
 
 export function UserDashboard() {
   const [activeTab, setActiveTab] = useState("create-identity");
@@ -37,15 +38,15 @@ export function UserDashboard() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-3 bg-secondary/50">
+        <TabsList className="grid w-full grid-cols-4 bg-secondary/50">
           <TabsTrigger value="create-identity" className="gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Create Identity</span>
           </TabsTrigger>
-          {/* <TabsTrigger value="register-identity" className="gap-2">
+          <TabsTrigger value="claim-requests" className="gap-2">
             <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">Register</span>
-          </TabsTrigger> */}
+            <span className="hidden sm:inline">Requests</span>
+          </TabsTrigger>
           <TabsTrigger value="my-claims" className="gap-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">My Claims</span>
@@ -62,6 +63,10 @@ export function UserDashboard() {
 
         <TabsContent value="register-identity">
           <RegisterIdentityTab />
+        </TabsContent>
+
+        <TabsContent value="claim-requests">
+          <ClaimRequestsTab />
         </TabsContent>
 
         <TabsContent value="my-claims">
