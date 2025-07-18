@@ -36,7 +36,8 @@ interface Claim {
 type PageType = "overview" | "admin" | "user" | "issuer";
 
 const Admin = "0x35C6e706EE23CD898b2C15fEB20f0fE726E734D2";
-const TrustedIssuersRegistryAddress = "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
+const TrustedIssuersRegistryAddress =
+  "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
 
 const Index = () => {
   const { toast } = useToast();
@@ -60,7 +61,7 @@ const Index = () => {
         setIsTrustedIssuer(false);
         return;
       }
-      
+
       try {
         const result = await readContract({
           address: TrustedIssuersRegistryAddress,
@@ -129,7 +130,11 @@ const Index = () => {
       case "admin":
         return isConnected && isAdmin ? <AdminDashboard /> : <Overview />;
       case "issuer":
-        return isConnected && isTrustedIssuer ? <IssuerDashboard /> : <Overview />;
+        return isConnected && isTrustedIssuer ? (
+          <IssuerDashboard />
+        ) : (
+          <Overview />
+        );
       case "user":
         return isConnected ? <UserDashboard /> : <Overview />;
       default:

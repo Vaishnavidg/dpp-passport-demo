@@ -33,7 +33,13 @@
     "type": "function"
   },
   {
-    "inputs": [],
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_claimTopicsRegistry",
+        "type": "address"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "constructor"
   },
@@ -80,6 +86,37 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "issuer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "claimType",
+        "type": "string"
+      }
+    ],
+    "name": "ClaimRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "issuer",
         "type": "address"
@@ -108,6 +145,24 @@
       }
     ],
     "name": "setIssuerAuthorization",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "issuer",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "claimType",
+        "type": "string"
+      }
+    ],
+    "name": "submitClaimRequest",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -243,11 +298,30 @@
   },
   {
     "inputs": [],
-    "name": "getAllClaims",
+    "name": "claimTopicsRegistry",
+    "outputs": [
+      {
+        "internalType": "contract IClaimTopicsRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "getRequestsByUser",
     "outputs": [
       {
         "internalType": "uint256[]",
-        "name": "topics",
+        "name": "ids",
         "type": "uint256[]"
       },
       {
@@ -256,19 +330,48 @@
         "type": "address[]"
       },
       {
-        "internalType": "bytes[]",
-        "name": "signatures",
-        "type": "bytes[]"
+        "internalType": "string[]",
+        "name": "claimTypes",
+        "type": "string[]"
       },
       {
-        "internalType": "bytes[]",
-        "name": "datas",
-        "type": "bytes[]"
-      },
+        "internalType": "bool[]",
+        "name": "fulfilledStatuses",
+        "type": "bool[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "issuer",
+        "type": "address"
+      }
+    ],
+    "name": "getRequestsForIssuer",
+    "outputs": [
       {
         "internalType": "uint256[]",
-        "name": "validsTo",
+        "name": "ids",
         "type": "uint256[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "users",
+        "type": "address[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "claimTypes",
+        "type": "string[]"
+      },
+      {
+        "internalType": "bool[]",
+        "name": "fulfilledStatuses",
+        "type": "bool[]"
       }
     ],
     "stateMutability": "view",
@@ -330,6 +433,53 @@
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "requestCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "requests",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "issuer",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "claimType",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "fulfilled",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",

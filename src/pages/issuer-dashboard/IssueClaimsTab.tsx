@@ -18,23 +18,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Send, Info, CheckCircle, RefreshCw, Calendar } from "lucide-react";
+import {
+  Shield,
+  Send,
+  Info,
+  CheckCircle,
+  RefreshCw,
+  Calendar,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { writeContract, readContract } from "@wagmi/core";
 import { useContractRead, useSignMessage, useAccount } from "wagmi";
 import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
 import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.json";
-import {
-  encodePacked,
-  hexToString,
-  keccak256,
-  stringToHex,
-} from "viem";
+import { encodePacked, hexToString, keccak256, stringToHex } from "viem";
 
 const IdentityContractAddress = "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978";
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
-const TrustedIssuersRegistryAddress = "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
+const TrustedIssuersRegistryAddress =
+  "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
 
 const generateClaimMessage = (
   topic: number,
@@ -70,7 +73,7 @@ export function IssueClaimsTab() {
   const [isIssuing, setIsIssuing] = useState(false);
   const [allClaims, setAllClaims] = useState<any[]>([]);
   const [isAuthorizedIssuer, setIsAuthorizedIssuer] = useState(false);
-  
+
   const { toast } = useToast();
   const { signMessageAsync } = useSignMessage();
   const { address: currentUser } = useAccount();
@@ -79,7 +82,7 @@ export function IssueClaimsTab() {
   useEffect(() => {
     const checkIssuerStatus = async () => {
       if (!currentUser) return;
-      
+
       try {
         const result = await readContract({
           address: TrustedIssuersRegistryAddress,
@@ -157,7 +160,7 @@ export function IssueClaimsTab() {
 
       // Filter claims issued by current user
       const myIssuedClaims = enrichedClaims.filter(
-        claim => claim.issuer.toLowerCase() === currentUser?.toLowerCase()
+        (claim) => claim.issuer.toLowerCase() === currentUser?.toLowerCase()
       );
       setAllClaims(myIssuedClaims);
     };
@@ -241,11 +244,21 @@ export function IssueClaimsTab() {
         console.log("result", result);
         toast({
           title: "Claim Issued Successfully",
-          description: `${claim.topicName} claim issued to ${claim.userAddress.slice(0, 6)}...${claim.userAddress.slice(-4)}`,
+          description: `${
+            claim.topicName
+          } claim issued to ${claim.userAddress.slice(
+            0,
+            6
+          )}...${claim.userAddress.slice(-4)}`,
           variant: "default",
         });
       }
-      setNewClaim({ userAddress: "", topicId: "", data: "", expiryDays: "365" });
+      setNewClaim({
+        userAddress: "",
+        topicId: "",
+        data: "",
+        expiryDays: "365",
+      });
     } catch (error) {
       console.log("error", error);
       toast({
@@ -282,7 +295,8 @@ export function IssueClaimsTab() {
           <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 max-w-md mx-auto">
             <Info className="h-4 w-4 text-destructive mt-0.5" />
             <p className="text-sm text-muted-foreground text-left">
-              Contact an administrator to get registered as a trusted issuer for specific claim topics.
+              Contact an administrator to get registered as a trusted issuer for
+              specific claim topics.
             </p>
           </div>
         </CardContent>
@@ -306,8 +320,9 @@ export function IssueClaimsTab() {
           <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
             <Info className="h-4 w-4 text-primary mt-0.5" />
             <p className="text-sm text-muted-foreground">
-              As a trusted issuer, you can issue cryptographic attestations that verify specific
-              attributes about user identities for regulatory compliance.
+              As a trusted issuer, you can issue cryptographic attestations that
+              verify specific attributes about user identities for regulatory
+              compliance.
             </p>
           </div>
 

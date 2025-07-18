@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -14,8 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Users, Info, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { MOCK_DATA } from "@/lib/config";
-import { writeContract } from "@wagmi/core";
+import { readContract, writeContract } from "@wagmi/core";
 import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.json";
 import { useContractRead } from "wagmi";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
@@ -26,11 +24,11 @@ interface TrustedIssuer {
   topics: string[];
 }
 const TrustedIssuersRegistryAddress =
-  "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
+  "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 
 export function TrustedIssuersTab() {
-  const { data, isLoading, isError } = useContractRead({
+  const { data } = useContractRead({
     address: ClaimTopicAddress,
     abi: ClaimTopicsABI,
     functionName: "getClaimTopicsWithNamesAndDescription",
@@ -46,6 +44,7 @@ export function TrustedIssuersTab() {
       description: descriptions[index],
     }));
   }, [data]);
+  console.log("topics", topics);
 
   const { data: issuers } = useContractRead({
     address: TrustedIssuersRegistryAddress,
@@ -53,27 +52,54 @@ export function TrustedIssuersTab() {
     functionName: "getAllIssuersDetails",
     watch: true,
   });
-  const trustedIssuers: TrustedIssuer[] = useMemo(() => {
-    if (!issuers) return [];
+  const [trustedIssuers, setTrustedIssuers] = useState<TrustedIssuer[]>([]);
 
-    const [addresses, flatTopics, names] = issuers as [
-      string[],
-      bigint[],
-      string[]
-    ];
+  useEffect(() => {
+    const fetchTrustedIssuers = async () => {
+      if (!issuers) return;
 
-    return addresses.map((address, index) => {
-      // If topics are flat, then we assume 1:1 mapping → each issuer has one topic
-      const topicId = flatTopics?.[index]?.toString() ?? ""; // safe fallback
-      return {
-        address: address.toString(),
-        name: names[index],
-        topics: topicId ? [topicId] : [],
-      };
-    });
+      const [addresses, flatTopics, names] = issuers as [
+        string[],
+        bigint[],
+        string[]
+      ];
+
+      const results = await Promise.all(
+        addresses.map(async (address, index) => {
+          try {
+            const topicsData = await readContract({
+              address: TrustedIssuersRegistryAddress as `0x${string}`,
+              abi: TrustedIssuersABI.filter((item) => item.type === "function"),
+              functionName: "getTopicsForIssuer",
+              args: [address],
+            });
+
+            return {
+              address: address.toString(),
+              name: names[index],
+              topics: (topicsData as bigint[]).map((t) => t.toString()),
+            };
+          } catch (error) {
+            console.error(
+              `Failed to fetch topics for issuer ${address}`,
+              error
+            );
+            return {
+              address: address.toString(),
+              name: names[index],
+              topics: [],
+            };
+          }
+        })
+      );
+
+      setTrustedIssuers(results);
+    };
+
+    fetchTrustedIssuers();
   }, [issuers]);
 
-  console.log(trustedIssuers);
+  console.log("trustedIssuers", trustedIssuers);
 
   const [newIssuer, setNewIssuer] = useState({
     address: "",
@@ -81,6 +107,7 @@ export function TrustedIssuersTab() {
     topics: [] as string[],
   });
   const { toast } = useToast();
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleTopicChange = (topicId: string, checked: boolean) => {
     if (checked) {
@@ -94,6 +121,8 @@ export function TrustedIssuersTab() {
   };
 
   const handleAddIssuer = async () => {
+    console.log("newIssuer", newIssuer);
+    setErrorMessage("");
     if (!newIssuer.address || !newIssuer.name) {
       toast({
         title: "Missing Information",
@@ -113,6 +142,8 @@ export function TrustedIssuersTab() {
 
     try {
       const topicIds = newIssuer.topics.map((id) => BigInt(id));
+
+      console.log("topicIds", topicIds);
       const result = await writeContract({
         address: TrustedIssuersRegistryAddress,
         abi: TrustedIssuersABI,
@@ -127,18 +158,20 @@ export function TrustedIssuersTab() {
         variant: "default",
       });
       setNewIssuer({ address: "", name: "", topics: [] });
-    } catch (err: any) {
-      console.error("Error adding issuer:", err);
+    } catch (error) {
+      console.log("error", error);
+      const errorMessage =
+        error?.shortMessage || error?.message || "Failed to add topic.";
+      setErrorMessage(errorMessage);
       toast({
-        title: "Transaction Failed",
-        description: err.shortMessage || err.message || "Something went wrong",
+        title: "Transfer Failed",
+        description: "Transaction failed. Please try again.",
         variant: "destructive",
       });
     }
   };
-
   const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    return `${addr.slice(0, 10)}.......${addr.slice(-6)}`;
   };
 
   return (
@@ -216,6 +249,9 @@ export function TrustedIssuersTab() {
               Add Trusted Issuer
             </Button>
           </div>
+          {errorMessage && (
+            <p className="text-sm text-red-500 text-center">{errorMessage}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -238,7 +274,7 @@ export function TrustedIssuersTab() {
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">{issuer.name}</h4>
                     <Badge variant="outline" className="text-xs">
-                      {issuer.address}
+                      {formatAddress(issuer.address)}
                     </Badge>
                   </div>
 

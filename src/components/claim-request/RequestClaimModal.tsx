@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,12 +21,22 @@ import {
 } from "@/components/ui/select";
 import { Plus, Shield, FileCheck, MapPin, Building, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useContractRead } from "wagmi";
+import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
+
+const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 
 interface ClaimType {
   id: string;
   name: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
+}
+
+interface TrustedIssuer {
+  address: string;
+  name: string;
+  topics: string[];
 }
 
 const claimTypes: ClaimType[] = [
@@ -63,16 +73,36 @@ const claimTypes: ClaimType[] = [
 ];
 
 interface RequestClaimModalProps {
-  trustedIssuers?: string[];
+  trustedIssuers?: TrustedIssuer[];
 }
 
-export function RequestClaimModal({ trustedIssuers = [] }: RequestClaimModalProps) {
+export function RequestClaimModal({
+  trustedIssuers = [],
+}: RequestClaimModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedClaimType, setSelectedClaimType] = useState("");
   const [issuerAddress, setIssuerAddress] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  const { data } = useContractRead({
+    address: ClaimTopicAddress,
+    abi: ClaimTopicsABI,
+    functionName: "getClaimTopicsWithNamesAndDescription",
+    watch: true,
+  });
+  const topics = useMemo(() => {
+    if (!data) return [];
+    const [ids, names, descriptions] = data as [bigint[], string[], string[]];
+
+    return ids.map((id, index) => ({
+      id: id.toString(),
+      name: names[index],
+      description: descriptions[index],
+    }));
+  }, [data]);
+  console.log("topics", topics);
 
   const handleSubmit = async () => {
     if (!selectedClaimType || !issuerAddress) {
@@ -85,16 +115,16 @@ export function RequestClaimModal({ trustedIssuers = [] }: RequestClaimModalProp
     }
 
     setIsSubmitting(true);
-    
+
     try {
       // Simulate API call to store claim request
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      
+
       toast({
         title: "Claim Request Submitted",
         description: "Your request has been sent to the issuer for review.",
       });
-      
+
       // Reset form
       setSelectedClaimType("");
       setIssuerAddress("");
@@ -110,8 +140,12 @@ export function RequestClaimModal({ trustedIssuers = [] }: RequestClaimModalProp
       setIsSubmitting(false);
     }
   };
-
-  const selectedClaim = claimTypes.find(claim => claim.id === selectedClaimType);
+  const filteredIssuers = useMemo(() => {
+    if (!selectedClaimType) return trustedIssuers;
+    return trustedIssuers.filter((issuer) =>
+      issuer.topics.includes(selectedClaimType)
+    );
+  }, [selectedClaimType, trustedIssuers]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -128,49 +162,59 @@ export function RequestClaimModal({ trustedIssuers = [] }: RequestClaimModalProp
             Request New Claim
           </DialogTitle>
           <DialogDescription>
-            Submit a request to a trusted issuer for identity verification claims.
+            Submit a request to a trusted issuer for identity verification
+            claims.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6 py-4">
           {/* Claim Type Selection */}
           <div className="space-y-2">
             <Label htmlFor="claim-type">Claim Type</Label>
-            <Select value={selectedClaimType} onValueChange={setSelectedClaimType}>
+            <Select
+              value={selectedClaimType}
+              onValueChange={setSelectedClaimType}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select the type of claim you need" />
               </SelectTrigger>
               <SelectContent>
-                {claimTypes.map((claim) => (
-                  <SelectItem key={claim.id} value={claim.id}>
+                {topics.map((topic) => (
+                  <SelectItem key={topic.id} value={topic.id}>
                     <div className="flex items-center gap-2">
-                      <claim.icon className="h-4 w-4" />
-                      <span>{claim.name}</span>
+                      {/* <claim.topics className="h-4 w-4" /> */}
+                      <span>{topic.name}</span>
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {selectedClaim && (
+            {/* {selectedClaim && (
               <p className="text-sm text-muted-foreground">
                 {selectedClaim.description}
               </p>
-            )}
+            )} */}
           </div>
 
           {/* Issuer Address */}
           <div className="space-y-2">
             <Label htmlFor="issuer-address">Trusted Issuer</Label>
-            {trustedIssuers.length > 0 ? (
+            {filteredIssuers.length > 0 ? (
               <Select value={issuerAddress} onValueChange={setIssuerAddress}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a trusted issuer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {trustedIssuers.map((issuer, index) => (
-                    <SelectItem key={issuer} value={issuer}>
-                      <div className="font-mono text-sm">
-                        {issuer.slice(0, 6)}...{issuer.slice(-4)}
+                  {filteredIssuers.map((issuer) => (
+                    <SelectItem key={issuer.address} value={issuer.address}>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-sm">
+                          {issuer.name}
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {issuer.address.slice(0, 6)}...
+                          {issuer.address.slice(-4)}
+                        </span>
                       </div>
                     </SelectItem>
                   ))}
@@ -179,7 +223,7 @@ export function RequestClaimModal({ trustedIssuers = [] }: RequestClaimModalProp
             ) : (
               <Input
                 id="issuer-address"
-                placeholder="0x... (Trusted issuer wallet address)"
+                placeholder="No issuer found for this topic. Enter manually..."
                 value={issuerAddress}
                 onChange={(e) => setIssuerAddress(e.target.value)}
                 className="font-mono"

@@ -27,7 +27,7 @@ import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.js
 const IdentityContractAddress = "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978";
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 const TrustedIssuersRegistryAddress =
-  "0xFAF9C47067D436ca7480bd7C3E2a85b53aC0c8E5";
+  "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
 
 interface UserClaim {
   topicId: string;
