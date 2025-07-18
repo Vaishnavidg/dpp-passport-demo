@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// import { publicClient } from "@/lib/viemClient"; // Or use wagmi's client
+import { parseAbiItem } from "viem";
 import {
   Coins,
   Send,
@@ -33,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePublicClient } from "wagmi";
 
 interface TokenTransaction {
   type: "mint" | "transfer" | "freeze" | "unfreeze";
@@ -49,7 +52,7 @@ interface TokenDetails {
   decimals: number;
 }
 
-const ERC3643TokenAddress = "0xe313673e15aF30fd6E21C341554553E1D11CCb74";
+const ERC3643TokenAddress = "0xb9e1301F57531854e267b2dcA1A68d5237D12E6a";
 
 export function TokenManagerTab() {
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
@@ -66,6 +69,60 @@ export function TokenManagerTab() {
   const { toast } = useToast();
   const [freezeAddress, setFreezeAddress] = useState("");
   const [freezeAction, setFreezeAction] = useState("freeze");
+  const publicClient = usePublicClient();
+
+  const fetchRecentTransactions = async () => {
+    const parsedMintEvent = parseAbiItem(
+      "event TokensMinted(address indexed to, uint256 amount)"
+    );
+    const parsedForcedTransferEvent = parseAbiItem(
+      "event ForcedTransfer(address indexed from, address indexed to, uint256 amount)"
+    );
+    try {
+      const logs = await publicClient.getLogs({
+        address: ERC3643TokenAddress,
+        fromBlock: BigInt(0), // or specify the block range you want
+        toBlock: "latest" as const,
+        events: [parsedMintEvent, parsedForcedTransferEvent] as const,
+      });
+
+      const parsedTxs: TokenTransaction[] = logs.map((log) => {
+        if (log.eventName === "TokensMinted") {
+          return {
+            type: "mint",
+            userAddress: log.args.to,
+            amount: log.args.amount.toString(),
+            timestamp: new Date().toISOString(),
+            status: "success",
+          };
+        } else if (log.eventName === "ForcedTransfer") {
+          return {
+            type: "transfer",
+            userAddress: `${log.args.from} → ${log.args.to}`,
+            amount: log.args.amount.toString(),
+            timestamp: new Date().toISOString(),
+            status: "success",
+          };
+        } else {
+          // fallback type safety
+          return {
+            type: "mint", // or throw error
+            userAddress: "",
+            amount: "0",
+            timestamp: new Date().toISOString(),
+            status: "failed",
+          };
+        }
+      });
+      setTransactions(parsedTxs.reverse());
+    } catch (error) {
+      console.error("Failed to fetch events", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecentTransactions();
+  }, [transactions]);
 
   // Fetch token details on component mount
   useEffect(() => {
@@ -337,15 +394,15 @@ export function TokenManagerTab() {
   const getTransactionColor = (type: string) => {
     switch (type) {
       case "mint":
-        return "bg-success/20 text-success-foreground";
+        return "bg-success/70 text-success-foreground";
       case "transfer":
-        return "bg-primary/20 text-primary-foreground";
+        return "bg-primary/70 text-primary-foreground";
       case "freeze":
-        return "bg-destructive/20 text-destructive-foreground";
+        return "bg-destructive/70 text-destructive-foreground";
       case "unfreeze":
-        return "bg-warning/20 text-warning-foreground";
+        return "bg-warning/70 text-warning-foreground";
       default:
-        return "bg-secondary/20 text-secondary-foreground";
+        return "bg-secondary/70 text-secondary-foreground";
     }
   };
 

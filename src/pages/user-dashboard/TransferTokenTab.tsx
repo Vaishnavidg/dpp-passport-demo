@@ -25,7 +25,7 @@ import ComplianceABI from "../../../contracts-abi-files/ComplianceABI.json";
 import { writeContract } from "@wagmi/core";
 import { formatUnits, isAddress, parseUnits } from "viem";
 
-const ERC3643TokenAddress = "0xe313673e15aF30fd6E21C341554553E1D11CCb74";
+const ERC3643TokenAddress = "0xb9e1301F57531854e267b2dcA1A68d5237D12E6a";
 const ComplianceAddress = "0xB47A318fEEFBc853Cd3a15e1Ad4e1f4326546bb0";
 
 interface TokenTransfer {
@@ -326,8 +326,8 @@ export function TransferTokenTab() {
                       <Badge
                         className={
                           transfer.status === "success"
-                            ? "bg-success/20 text-success-foreground"
-                            : "bg-destructive/20 text-destructive-foreground"
+                            ? "bg-success/70 text-success-foreground"
+                            : "bg-destructive/70 text-destructive-foreground"
                         }
                       >
                         {transfer.status === "success" ? (

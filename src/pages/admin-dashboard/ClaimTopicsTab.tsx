@@ -33,6 +33,7 @@ export function ClaimTopicsTab() {
     description: "",
   });
   const { toast } = useToast();
+  const [errorMessage, setErrorMessage] = useState("");
 
   const { data, isLoading, isError } = useContractRead({
     address: ClaimTopicAddress,
@@ -53,6 +54,7 @@ export function ClaimTopicsTab() {
   }, [data]);
 
   const handleAddTopic = async () => {
+    setErrorMessage("");
     if (!newTopic.id || !newTopic.name) {
       toast({
         title: "Missing Information",
@@ -61,31 +63,43 @@ export function ClaimTopicsTab() {
       });
       return;
     }
-    const result = await writeContract({
-      address: ClaimTopicAddress,
-      abi: ClaimTopicsABI,
-      functionName: "addClaimTopic",
-      args:
-        newTopic && ClaimTopicAddress
-          ? [newTopic.id, newTopic.name, newTopic.description]
-          : undefined,
-      enabled: !!ClaimTopicAddress && newTopic,
-    });
-    if (result) {
-      console.log("Claim Topic Added:", result);
-      toast({
-        title: "Claim Topic Added",
-        description: `Topic "${newTopic.name}" has been registered`,
-        variant: "default",
+    try {
+      const result = await writeContract({
+        address: ClaimTopicAddress,
+        abi: ClaimTopicsABI,
+        functionName: "addClaimTopic",
+        args:
+          newTopic && ClaimTopicAddress
+            ? [newTopic.id, newTopic.name, newTopic.description]
+            : undefined,
+        enabled: !!ClaimTopicAddress && newTopic,
       });
-    } else {
+      if (result) {
+        console.log("Claim Topic Added:", result);
+        toast({
+          title: "Claim Topic Added",
+          description: `Topic "${newTopic.name}" has been registered`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Transaction not ready. Please try again.",
+          variant: "destructive",
+        });
+      }
+      setNewTopic({ id: "", name: "", description: "" });
+    } catch (error) {
+      console.log("error", error);
+      const errorMessage =
+        error?.shortMessage || error?.message || "Failed to add topic.";
+      setErrorMessage(errorMessage);
       toast({
-        title: "Error",
-        description: "Transaction not ready. Please try again.",
+        title: "Transfer Failed",
+        description: "Transaction failed. Please try again.",
         variant: "destructive",
       });
     }
-    setNewTopic({ id: "", name: "", description: "" });
   };
 
   return (
@@ -156,6 +170,9 @@ export function ClaimTopicsTab() {
               Add Topic
             </Button>
           </div>
+          {errorMessage && (
+            <p className="text-sm text-red-500 text-center">{errorMessage}</p>
+          )}
         </CardContent>
       </Card>
 
