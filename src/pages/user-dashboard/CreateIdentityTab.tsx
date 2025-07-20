@@ -25,7 +25,7 @@ import {
   Copy,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { EDUCATIONAL_MESSAGES } from "@/lib/config";
+import { CONTRACT_ADDRESSES, EDUCATIONAL_MESSAGES } from "@/lib/config";
 import { writeContract, readContract } from "@wagmi/core";
 import TokenFactoryABI from "../../../contracts-abi-files/TokenFactoryABI.json";
 import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
@@ -41,8 +41,8 @@ import {
 import { hardhat } from "viem/chains";
 import { Label } from "@/components/ui/label.js";
 
-const TokenFactoryAddress = "0x014c819c9b01510C14d597ca19CDA699FE8C0BB1";
-const IdentityRegistryAddress = "0x9e1EFE110aC3615ad3B669CC6a424e24e41bFd05";
+const IdentityRegistryAddress =
+  CONTRACT_ADDRESSES.IDENTITY_REGISTRY_ADDRESS as `0x${string}`;
 
 export function CreateIdentityTab() {
   const [isDeploying, setIsDeploying] = useState(false);

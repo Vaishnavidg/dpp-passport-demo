@@ -1,28 +1,5 @@
 [
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "topic",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "name",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "description",
-        "type": "string"
-      }
-    ],
-    "name": "addClaimTopic",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
@@ -60,9 +37,19 @@
         "internalType": "uint256",
         "name": "topic",
         "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
       }
     ],
-    "name": "removeClaimTopic",
+    "name": "addClaimTopic",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -120,6 +107,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "topic",
+        "type": "uint256"
+      }
+    ],
+    "name": "removeClaimTopic",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

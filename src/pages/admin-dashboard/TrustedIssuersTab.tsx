@@ -25,6 +25,7 @@ import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.js
 import { useContractRead } from "wagmi";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
 import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
+import { CONTRACT_ADDRESSES } from "@/lib/config";
 
 interface TrustedIssuer {
   address: string;
@@ -33,9 +34,10 @@ interface TrustedIssuer {
   isAuthorized: boolean;
 }
 const TrustedIssuersRegistryAddress =
-  "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
-const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
-const IdentityAddress = "0x66B7642b399A6c72b72129E8F1Af35DbcBf36b7d";
+  CONTRACT_ADDRESSES.TRUST_ISSUER_REGISTRY_ADDRESS as `0x${string}`;
+const ClaimTopicAddress =
+  CONTRACT_ADDRESSES.CLAIM_TOPIC_REGISTRY_ADDRESS as `0x${string}`;
+const IdentityAddress = CONTRACT_ADDRESSES.IDENTITY_ADDRESS as `0x${string}`;
 
 export function TrustedIssuersTab() {
   const { data } = useContractRead({

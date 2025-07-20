@@ -22,8 +22,10 @@ import { useContractRead, useAccount } from "wagmi";
 import { readContract } from "@wagmi/core";
 import IdentityRegistryABI from "../../../contracts-abi-files/IdentityRegistryABI.json";
 import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
+import { CONTRACT_ADDRESSES } from "@/lib/config";
 
-const IdentityRegistryAddress = "0x9e1EFE110aC3615ad3B669CC6a424e24e41bFd05";
+const IdentityRegistryAddress =
+  CONTRACT_ADDRESSES.IDENTITY_REGISTRY_ADDRESS as `0x${string}`;
 
 interface RegisteredUser {
   walletAddress: string;

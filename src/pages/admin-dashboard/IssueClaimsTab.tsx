@@ -31,9 +31,12 @@ import {
 } from "viem";
 import { useContractRead, useSignMessage } from "wagmi";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
+import { CONTRACT_ADDRESSES } from "@/lib/config";
 
-const IdentityContractAddress = "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978";
-const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
+const IdentityContractAddress =
+  CONTRACT_ADDRESSES.IDENTITY_ADDRESS as `0x${string}`;
+const ClaimTopicAddress =
+  CONTRACT_ADDRESSES.CLAIM_TOPIC_REGISTRY_ADDRESS as `0x${string}`;
 
 const generateClaimMessage = (
   topic: number,

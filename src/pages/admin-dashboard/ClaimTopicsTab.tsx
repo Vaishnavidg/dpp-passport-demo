@@ -16,9 +16,11 @@ import { useToast } from "@/hooks/use-toast";
 import { writeContract } from "@wagmi/core";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
 import { useContractRead } from "wagmi";
+import { ADMIN_ADDRESS, CONTRACT_ADDRESSES } from "@/lib/config";
 
-const Admin = "0x35C6e706EE23CD898b2C15fEB20f0fE726E734D2";
-const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
+const Admin = ADMIN_ADDRESS;
+const ClaimTopicAddress =
+  CONTRACT_ADDRESSES.CLAIM_TOPIC_REGISTRY_ADDRESS as `0x${string}`;
 
 interface ClaimTopic {
   id: number;

@@ -4,9 +4,11 @@ import { useWeb3Modal } from "@web3modal/react";
 import { useToast } from "@/hooks/use-toast";
 import { readContract } from "@wagmi/core";
 import TrustedIssuersABI from "../../contracts-abi-files/TrustedIssuersABI.json";
+import { ADMIN_ADDRESS, CONTRACT_ADDRESSES } from "@/lib/config";
 
-const Admin = "0x35C6e706EE23CD898b2C15fEB20f0fE726E734D2";
-const TrustedIssuersRegistryAddress = "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
+const Admin = ADMIN_ADDRESS as `0x${string}`;
+const TrustedIssuersRegistryAddress =
+  CONTRACT_ADDRESSES.TRUST_ISSUER_REGISTRY_ADDRESS;
 
 export function useWalletConnection() {
   const { toast } = useToast();
@@ -91,4 +93,4 @@ export function useWalletConnection() {
     balance,
     connectWallet,
   };
-} 
+}

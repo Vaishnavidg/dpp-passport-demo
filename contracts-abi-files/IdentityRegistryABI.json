@@ -13,29 +13,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "internalType": "contract IIdentity",
-        "name": "identity",
-        "type": "address"
-      },
-      {
-        "internalType": "uint16",
-        "name": "country",
-        "type": "uint16"
-      }
-    ],
-    "name": "registerIdentity",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "getAllUsers",
     "outputs": [
@@ -174,6 +151,29 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IIdentity",
+        "name": "identity",
+        "type": "address"
+      },
+      {
+        "internalType": "uint16",
+        "name": "country",
+        "type": "uint16"
+      }
+    ],
+    "name": "registerIdentity",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

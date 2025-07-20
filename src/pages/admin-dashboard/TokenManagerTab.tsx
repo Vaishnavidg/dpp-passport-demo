@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePublicClient } from "wagmi";
+import { CONTRACT_ADDRESSES } from "@/lib/config";
 
 interface TokenTransaction {
   type: "mint" | "transfer" | "freeze" | "unfreeze";
@@ -52,7 +53,8 @@ interface TokenDetails {
   decimals: number;
 }
 
-const ERC3643TokenAddress = "0x61194488D14C1b159D7f0a290d3b74ec80AC98f2";
+const ERC3643TokenAddress =
+  CONTRACT_ADDRESSES.ERC3643_CONTRACT_ADDRESS as `0x${string}`;
 
 export function TokenManagerTab() {
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);

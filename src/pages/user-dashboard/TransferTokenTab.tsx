@@ -18,31 +18,58 @@ import {
   DollarSign,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAccount, useContractRead } from "wagmi";
-import { EDUCATIONAL_MESSAGES } from "@/lib/config";
+import { useAccount, useContractEvent, useContractRead } from "wagmi";
+import { CONTRACT_ADDRESSES, EDUCATIONAL_MESSAGES } from "@/lib/config";
 import ERC3643TokenABI from "../../../contracts-abi-files/ERC3643TokenABI.json";
 import ComplianceABI from "../../../contracts-abi-files/ComplianceABI.json";
 import { writeContract } from "@wagmi/core";
-import { formatUnits, isAddress, parseUnits } from "viem";
+import { Address, formatUnits, isAddress, parseUnits } from "viem";
 
-const ERC3643TokenAddress = "0x61194488D14C1b159D7f0a290d3b74ec80AC98f2";
-const ComplianceAddress = "0x04f3A33B4fE27aC6a6611E125f16b55eeD16aa12";
+const ERC3643TokenAddress =
+  CONTRACT_ADDRESSES.ERC3643_CONTRACT_ADDRESS as `0x${string}`;
+const ComplianceAddress =
+  CONTRACT_ADDRESSES.COMPLIANCE_CONTRACT_ADDRESS as `0x${string}`;
 
 interface TokenTransfer {
+  from: string;
   to: string;
   amount: string;
   timestamp: string;
-  status: "success" | "failed";
-  reason?: string;
+  status?: string; // Optional now
+}
+interface TransferEvent {
+  from: Address;
+  to: Address;
+  value: bigint;
 }
 
 export function TransferTokenTab() {
   const [transferForm, setTransferForm] = useState({ to: "", amount: "" });
-  const [transfers, setTransfers] = useState<TokenTransfer[]>([]);
+  // const [transfers, setTransfers] = useState<TokenTransfer[]>([]);
   const [isTransferring, setIsTransferring] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const { address } = useAccount();
   const { toast } = useToast();
+  const [eventTransfers, setEventTransfers] = useState<TokenTransfer[]>([]);
+
+  useContractEvent({
+    address: ERC3643TokenAddress,
+    abi: ERC3643TokenABI,
+    eventName: "Transfer",
+    listener: (logs) => {
+      const typedLogs = logs as unknown as { args: TransferEvent }[];
+
+      const newTransfers = typedLogs.map((log) => ({
+        from: log.args.from,
+        to: log.args.to,
+        amount: formatUnits(log.args.value, 18),
+        timestamp: new Date().toISOString(),
+        status: "success",
+      }));
+
+      setEventTransfers((prev) => [...newTransfers, ...prev]);
+    },
+  });
 
   const Balance = useContractRead({
     address: ERC3643TokenAddress,
@@ -80,17 +107,6 @@ export function TransferTokenTab() {
   });
 
   const Maximumlimit = Max.data ? (Max.data as bigint) : 0;
-
-  useEffect(() => {
-    const savedTransfers = localStorage.getItem("transfers");
-    if (savedTransfers) {
-      setTransfers(JSON.parse(savedTransfers));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("transfers", JSON.stringify(transfers));
-  }, [transfers]);
 
   const handleTransfer = async () => {
     setErrorMessage("");
@@ -156,29 +172,12 @@ export function TransferTokenTab() {
       if (result) {
         console.log("result", result);
         setTransferForm({ to: "", amount: "" });
-        const transfer: TokenTransfer = {
-          to: transferForm.to,
-          amount: transferForm.amount,
-          timestamp: new Date().toISOString(),
-          status: "success",
-        };
-        setTransfers([transfer, ...transfers]);
 
         toast({
           title: "Transfer Successful",
           description: `${amount} tokens transferred successfully`,
           variant: "default",
         });
-      } else {
-        const transfer: TokenTransfer = {
-          to: transferForm.to,
-          amount: transferForm.amount,
-          timestamp: new Date().toISOString(),
-          status: "failed",
-          reason: "Recipient lacks valid claims or identity",
-        };
-
-        setTransfers([transfer, ...transfers]);
       }
     } catch (error) {
       console.log("error", error);
@@ -316,7 +315,7 @@ export function TransferTokenTab() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {transfers.map((transfer, index) => (
+            {eventTransfers.map((transfer, index) => (
               <div
                 key={index}
                 className="p-4 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors"
@@ -354,19 +353,19 @@ export function TransferTokenTab() {
                     </Badge>
                   </div>
 
-                  {transfer.reason && (
+                  {/* {transfer.reason && (
                     <div className="flex items-start gap-2 p-2 rounded bg-destructive/10 border border-destructive/20">
                       <AlertTriangle className="h-3 w-3 text-destructive mt-0.5" />
                       <p className="text-xs text-muted-foreground">
                         {transfer.reason}
                       </p>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
             ))}
 
-            {transfers.length === 0 && (
+            {eventTransfers.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <Send className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No transfers yet</p>

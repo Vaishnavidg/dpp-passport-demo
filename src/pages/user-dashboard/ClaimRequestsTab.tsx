@@ -4,9 +4,10 @@ import { useContractRead } from "wagmi";
 import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.json";
 import { useEffect, useMemo, useState } from "react";
 import { readContract } from "@wagmi/core";
+import { CONTRACT_ADDRESSES } from "@/lib/config";
 
 const TrustedIssuersRegistryAddress =
-  "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
+  CONTRACT_ADDRESSES.TRUST_ISSUER_REGISTRY_ADDRESS as `0x${string}`;
 
 interface TrustedIssuer {
   address: string;
