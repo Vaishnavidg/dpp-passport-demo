@@ -28,17 +28,29 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { writeContract, readContract } from "@wagmi/core";
-import { useContractRead, useSignMessage, useAccount } from "wagmi";
+import {
+  useSignMessage,
+  useAccount,
+  usePublicClient,
+  useContractEvent,
+  useContractRead,
+} from "wagmi";
 import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
 import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.json";
 import { encodePacked, hexToString, keccak256, stringToHex } from "viem";
 
-const IdentityContractAddress = "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978";
+/* ------------------------------------------------------------------
+ * CONSTANTS
+ * ----------------------------------------------------------------*/
+const IdentityAddress = "0x66B7642b399A6c72b72129E8F1Af35DbcBf36b7d";
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 const TrustedIssuersRegistryAddress =
   "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
 
+/* ------------------------------------------------------------------
+ * HELPERS
+ * ----------------------------------------------------------------*/
 const generateClaimMessage = (
   topic: number,
   userAddress: string,
@@ -59,30 +71,53 @@ interface IssuedClaim {
   timestamp: string;
   data?: string;
   validTo?: number;
-  issuer?: string;
   isValid?: boolean;
 }
 
+/* ------------------------------------------------------------------
+ * COMPONENT
+ * ----------------------------------------------------------------*/
 export function IssueClaimsTab() {
+  /* ------------------------------------------------------------------
+   * REACT STATE
+   * ----------------------------------------------------------------*/
   const [newClaim, setNewClaim] = useState({
+    requestId: "",
     userAddress: "",
     topicId: "",
     data: "",
     expiryDays: "365",
   });
   const [isIssuing, setIsIssuing] = useState(false);
-  const [allClaims, setAllClaims] = useState<any[]>([]);
   const [isAuthorizedIssuer, setIsAuthorizedIssuer] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const { address } = useAccount();
 
+  /** Raw `ClaimAdded` logs fetched from the chain */
+  const [rawClaimLogs, setRawClaimLogs] = useState<any[]>([]);
+
+  /** Map of topicId -> validity (true / false) */
+  const [claimValidity, setClaimValidity] = useState<Record<number, boolean>>(
+    {}
+  );
+
+  /** Loading state for claim log fetch */
+  const [isLoading, setIsLoading] = useState(false);
+
+  /* ------------------------------------------------------------------
+   * HOOKS
+   * ----------------------------------------------------------------*/
   const { toast } = useToast();
   const { signMessageAsync } = useSignMessage();
   const { address: currentUser } = useAccount();
+  const publicClient = usePublicClient();
 
-  // Check if current user is a trusted issuer
+  /* ------------------------------------------------------------------
+   * AUTHORIZATION CHECK
+   * ----------------------------------------------------------------*/
   useEffect(() => {
     const checkIssuerStatus = async () => {
       if (!currentUser) return;
-
       try {
         const result = await readContract({
           address: TrustedIssuersRegistryAddress,
@@ -100,74 +135,9 @@ export function IssueClaimsTab() {
     checkIssuerStatus();
   }, [currentUser]);
 
-  const {
-    data: rawClaims,
-    isLoading,
-    refetch: refetchAllClaims,
-  } = useContractRead({
-    address: IdentityContractAddress,
-    abi: IdentityABI,
-    functionName: "getAllClaims",
-    watch: true,
-  });
-
-  useEffect(() => {
-    const fetchClaimsWithValidity = async () => {
-      if (!rawClaims) {
-        setAllClaims([]);
-        return;
-      }
-
-      const [topics, issuers, signatures, datas, validsTo] = rawClaims as [
-        bigint[],
-        string[],
-        string[],
-        string[],
-        bigint[]
-      ];
-
-      const enrichedClaims = await Promise.all(
-        topics.map(async (topic, index) => {
-          const topicId = topic.toString();
-          const validTo = Number(validsTo[index]);
-
-          let isValid: boolean = false;
-          try {
-            const valid = await readContract({
-              address: IdentityContractAddress,
-              abi: IdentityABI,
-              functionName: "isClaimValid",
-              args: [topic],
-            });
-            isValid = valid as boolean;
-          } catch (e) {
-            console.error(`Validity check failed for topic ${topicId}`, e);
-          }
-
-          return {
-            topic: topicId,
-            issuer: issuers[index],
-            signature: signatures[index],
-            data: hexToString(datas[index] as `0x${string}`),
-            validTo,
-            timestamp: new Date(
-              validTo * 1000 - 365 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-            isValid,
-          };
-        })
-      );
-
-      // Filter claims issued by current user
-      const myIssuedClaims = enrichedClaims.filter(
-        (claim) => claim.issuer.toLowerCase() === currentUser?.toLowerCase()
-      );
-      setAllClaims(myIssuedClaims);
-    };
-
-    fetchClaimsWithValidity();
-  }, [rawClaims, currentUser]);
-
+  /* ------------------------------------------------------------------
+   * CLAIM TOPICS METADATA
+   * ----------------------------------------------------------------*/
   const { data: topicData } = useContractRead({
     address: ClaimTopicAddress,
     abi: ClaimTopicsABI,
@@ -182,15 +152,67 @@ export function IssueClaimsTab() {
       string[],
       string[]
     ];
-
     return ids.map((id, index) => ({
-      id: id,
+      id,
       name: names[index],
       description: descriptions[index],
     }));
   }, [topicData]);
 
+  /* ------------------------------------------------------------------
+   * FETCH CLAIM LOGS + VALIDITY
+   * ----------------------------------------------------------------*/
+
+  /* Subscribe to live ClaimAdded events so UI updates immediately */
+  const rawClaim = useContractRead({
+    address: IdentityAddress,
+    abi: IdentityABI,
+    functionName: "getRequestsForIssuer",
+    args: [address],
+    watch: true,
+  });
+  console.log(rawClaim.data);
+
+  /* ------------------------------------------------------------------
+   * allClaims – memoized transformation of raw logs + validity
+   * ----------------------------------------------------------------*/
+  const allClaims = useMemo(() => {
+    if (!rawClaim) return [];
+    const [ids, userAddress, topicIds, statuses] = rawClaim.data as [
+      bigint[],
+      string[],
+      bigint[],
+      boolean[]
+    ];
+    return ids.map((id, index) => {
+      const topicId = topicIds[index].toString();
+      console.log("topic id", topicId);
+      console.log("topics", topics);
+      const topic = topics.find((t) => t.id.toString() === topicId);
+      console.log("topic", topic);
+
+      const claimType = topic ? topic.name : "Unknown";
+      const statusValue = statuses[index];
+      const status = statusValue === false ? "pending" : "approved";
+
+      return {
+        id: id.toString(),
+        requesterAddress: userAddress[index],
+        claimType,
+        status,
+      };
+    });
+  }, [rawClaim, topics]);
+
+  const approvedClaims = allClaims.filter(
+    (claim) => claim.status === "approved"
+  );
+
+  /* ------------------------------------------------------------------
+   * ISSUE CLAIM HANDLER
+   * ----------------------------------------------------------------*/
   const handleIssueClaim = async () => {
+    setErrorMessage("");
     if (!isAuthorizedIssuer) {
       toast({
         title: "Unauthorized",
@@ -199,7 +221,6 @@ export function IssueClaimsTab() {
       });
       return;
     }
-
     if (!newClaim.userAddress || !newClaim.topicId) {
       toast({
         title: "Missing Information",
@@ -208,9 +229,7 @@ export function IssueClaimsTab() {
       });
       return;
     }
-
     setIsIssuing(true);
-
     try {
       const topicId = parseInt(newClaim.topicId);
       const topic = topics.find((t) => t.id === BigInt(topicId));
@@ -218,52 +237,51 @@ export function IssueClaimsTab() {
       const expiryDays = parseInt(newClaim.expiryDays);
       const validTo = currentTimestamp + expiryDays * 24 * 60 * 60;
 
-      const claim: IssuedClaim = {
-        userAddress: newClaim.userAddress,
-        topicId,
-        topicName: topic?.name || `Topic ${topicId}`,
-        timestamp: new Date().toISOString(),
-      };
-
       const hash = generateClaimMessage(
-        Number(topic.id),
-        claim.userAddress,
+        topicId,
+        newClaim.userAddress,
         currentTimestamp
       );
       const signed = await signMessageAsync({ message: hash });
       const dataBytes = stringToHex(newClaim.data || "");
 
-      const result = await writeContract({
-        address: IdentityContractAddress,
+      await writeContract({
+        address: IdentityAddress,
         abi: IdentityABI,
         functionName: "addClaim",
-        args: [topicId, newClaim.userAddress, signed, dataBytes, validTo],
+        args: [
+          topicId,
+          newClaim.userAddress,
+          signed,
+          dataBytes,
+          validTo,
+          newClaim.requestId,
+        ],
       });
 
-      if (result) {
-        console.log("result", result);
-        toast({
-          title: "Claim Issued Successfully",
-          description: `${
-            claim.topicName
-          } claim issued to ${claim.userAddress.slice(
-            0,
-            6
-          )}...${claim.userAddress.slice(-4)}`,
-          variant: "default",
-        });
-      }
+      toast({
+        title: "Claim Issued Successfully",
+        description: `${
+          topic?.name || `Topic ${topicId}`
+        } claim issued to ${newClaim.userAddress.slice(
+          0,
+          6
+        )}...${newClaim.userAddress.slice(-4)}`,
+      });
       setNewClaim({
+        requestId: "",
         userAddress: "",
         topicId: "",
         data: "",
         expiryDays: "365",
       });
-    } catch (error) {
-      console.log("error", error);
+    } catch (error: any) {
+      const errMsg =
+        error?.shortMessage || error?.message || "Failed to add claim.";
+      setErrorMessage(errMsg);
       toast({
         title: "Failed to Issue Claim",
-        description: "Transaction failed. Please try again.",
+        description: errMsg,
         variant: "destructive",
       });
     } finally {
@@ -271,18 +289,17 @@ export function IssueClaimsTab() {
     }
   };
 
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
+  /* ------------------------------------------------------------------
+   * FORMATTERS
+   * ----------------------------------------------------------------*/
+  const formatAddress = (addr: string) =>
+    `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  const formatTimestamp = (ts: string) =>
+    `${new Date(ts).toLocaleDateString()} ${new Date(ts).toLocaleTimeString()}`;
 
-  const formatTimestamp = (timestamp: string) => {
-    return (
-      new Date(timestamp).toLocaleDateString() +
-      " " +
-      new Date(timestamp).toLocaleTimeString()
-    );
-  };
-
+  /* ------------------------------------------------------------------
+   * RENDER – UNAUTHORIZED VIEW
+   * ----------------------------------------------------------------*/
   if (!isAuthorizedIssuer) {
     return (
       <Card className="bg-gradient-card shadow-card">
@@ -304,8 +321,12 @@ export function IssueClaimsTab() {
     );
   }
 
+  /* ------------------------------------------------------------------
+   * RENDER – MAIN VIEW
+   * ----------------------------------------------------------------*/
   return (
     <div className="grid gap-6 md:grid-cols-2">
+      {/* ---------------- Form Card ---------------- */}
       <Card className="bg-gradient-card shadow-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -327,11 +348,24 @@ export function IssueClaimsTab() {
           </div>
 
           <div className="space-y-3">
+            {/*  Request Id */}
+            <div>
+              <Label htmlFor="user-address">Request Id</Label>
+              <Input
+                id="user-address"
+                placeholder="1, 2.."
+                value={newClaim.requestId}
+                onChange={(e) =>
+                  setNewClaim({ ...newClaim, requestId: e.target.value })
+                }
+              />
+            </div>
+            {/* User Address */}
             <div>
               <Label htmlFor="user-address">User Identity Address</Label>
               <Input
                 id="user-address"
-                placeholder="0x... (Identity contract address)"
+                placeholder="0x..."
                 value={newClaim.userAddress}
                 onChange={(e) =>
                   setNewClaim({ ...newClaim, userAddress: e.target.value })
@@ -339,6 +373,7 @@ export function IssueClaimsTab() {
               />
             </div>
 
+            {/* Claim Topic */}
             <div>
               <Label htmlFor="claim-topic">Claim Topic</Label>
               <Select
@@ -352,7 +387,10 @@ export function IssueClaimsTab() {
                 </SelectTrigger>
                 <SelectContent>
                   {topics.map((topic) => (
-                    <SelectItem key={topic.id} value={topic.id.toString()}>
+                    <SelectItem
+                      key={topic.id.toString()}
+                      value={topic.id.toString()}
+                    >
                       {topic.name} (ID: {Number(topic.id)})
                     </SelectItem>
                   ))}
@@ -360,11 +398,12 @@ export function IssueClaimsTab() {
               </Select>
             </div>
 
+            {/* Claim Data */}
             <div>
               <Label htmlFor="claim-data">Claim Data</Label>
               <Input
                 id="claim-data"
-                placeholder="Enter verification data (e.g. KYC hash, document reference)"
+                placeholder="Enter verification data"
                 value={newClaim.data}
                 onChange={(e) =>
                   setNewClaim({ ...newClaim, data: e.target.value })
@@ -372,6 +411,7 @@ export function IssueClaimsTab() {
               />
             </div>
 
+            {/* Expiry */}
             <div>
               <Label htmlFor="expiry-days">Validity Period (Days)</Label>
               <Select
@@ -396,11 +436,10 @@ export function IssueClaimsTab() {
             <Button
               onClick={handleIssueClaim}
               className="w-full"
-              variant="default"
               disabled={isIssuing}
             >
               {isIssuing ? (
-                <>Processing...</>
+                "Processing..."
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
@@ -409,9 +448,13 @@ export function IssueClaimsTab() {
               )}
             </Button>
           </div>
+          {errorMessage && (
+            <p className="text-sm text-red-500 text-center">{errorMessage}</p>
+          )}
         </CardContent>
       </Card>
 
+      {/* ---------------- Claims List Card ---------------- */}
       <Card className="bg-gradient-card shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -427,17 +470,7 @@ export function IssueClaimsTab() {
             <Button
               variant="outline"
               size="sm"
-              onClick={async () => {
-                const result = await refetchAllClaims();
-                if (result.status === "success") {
-                  toast({ title: "Claims refreshed successfully" });
-                } else {
-                  toast({
-                    title: "Failed to refresh claims",
-                    variant: "destructive",
-                  });
-                }
-              }}
+              onClick={() => approvedClaims}
               disabled={isLoading}
             >
               <RefreshCw
@@ -447,54 +480,54 @@ export function IssueClaimsTab() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading && (
+          {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">
               <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin" />
               <p>Loading claims from blockchain...</p>
             </div>
-          )}
-
-          {!isLoading && (
+          ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {allClaims.map((claim, index) => (
+              {approvedClaims.map((claim) => (
                 <div
-                  key={index}
+                  key={`${claim.id}`}
                   className="p-4 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors"
                 >
                   <div className="space-y-2">
+                    {/* Header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
                           className="bg-success/70 text-success-foreground"
                         >
-                          Topic ID: {claim.topic}
+                          Topic ID: {claim.claimType}
                         </Badge>
-
-                        {claim.isValid !== undefined && (
+                        {/* {claim.claimType !== undefined && (
                           <Badge
-                            variant={claim.isValid ? "default" : "destructive"}
+                            variant={claim.status ? "default" : "destructive"}
                             className="text-xs"
                           >
-                            {claim.isValid ? "Valid" : "Expired"}
+                            {claim. ? "Valid" : "Expired"}
                           </Badge>
-                        )}
+                        )} */}
                       </div>
-                      <span className="text-xs text-muted-foreground">
+                      {/* <span className="text-xs text-muted-foreground">
                         {formatTimestamp(claim.timestamp)}
-                      </span>
+                      </span> */}
                     </div>
 
+                    {/* User */}
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">
                         User:
                       </span>
                       <Badge variant="outline" className="text-xs">
-                        {formatAddress(claim.userAddress || claim.issuer)}
+                        {formatAddress(claim.requesterAddress)}
                       </Badge>
                     </div>
 
-                    {claim.validTo && (
+                    {/* Valid To */}
+                    {/* {claim.validTo && (
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3 w-3 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">
@@ -504,22 +537,10 @@ export function IssueClaimsTab() {
                           {new Date(claim.validTo * 1000).toLocaleDateString()}
                         </span>
                       </div>
-                    )}
-
-                    {claim.data && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          Data:
-                        </span>
-                        <span className="text-xs text-muted-foreground truncate max-w-48">
-                          {claim.data}
-                        </span>
-                      </div>
-                    )}
+                    )} */}
                   </div>
                 </div>
               ))}
-
               {allClaims.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <CheckCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />

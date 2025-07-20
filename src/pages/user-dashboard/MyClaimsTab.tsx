@@ -24,7 +24,7 @@ import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
 import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.json";
 
-const IdentityContractAddress = "0xa02B86A9DBE8049d53EEFD1f5560d5fF5B6c7978";
+const IdentityContractAddress = "0x66B7642b399A6c72b72129E8F1Af35DbcBf36b7d";
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 const TrustedIssuersRegistryAddress =
   "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";

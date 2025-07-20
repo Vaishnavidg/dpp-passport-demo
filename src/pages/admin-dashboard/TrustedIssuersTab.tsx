@@ -11,12 +11,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Users, Info, CheckCircle, Shield, ShieldCheck } from "lucide-react";
+import {
+  Plus,
+  Users,
+  Info,
+  CheckCircle,
+  Shield,
+  ShieldCheck,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { readContract, writeContract } from "@wagmi/core";
 import TrustedIssuersABI from "../../../contracts-abi-files/TrustedIssuersABI.json";
 import { useContractRead } from "wagmi";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
+import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
 
 interface TrustedIssuer {
   address: string;
@@ -27,6 +35,7 @@ interface TrustedIssuer {
 const TrustedIssuersRegistryAddress =
   "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
+const IdentityAddress = "0x66B7642b399A6c72b72129E8F1Af35DbcBf36b7d";
 
 export function TrustedIssuersTab() {
   const { data } = useContractRead({
@@ -71,16 +80,18 @@ export function TrustedIssuersTab() {
             const [topicsData, isAuthorizedData] = await Promise.all([
               readContract({
                 address: TrustedIssuersRegistryAddress as `0x${string}`,
-                abi: TrustedIssuersABI.filter((item) => item.type === "function"),
+                abi: TrustedIssuersABI.filter(
+                  (item) => item.type === "function"
+                ),
                 functionName: "getTopicsForIssuer",
                 args: [address],
               }),
               readContract({
-                address: TrustedIssuersRegistryAddress as `0x${string}`,
-                abi: TrustedIssuersABI.filter((item) => item.type === "function"),
-                functionName: "isTrustedIssuer",
+                address: IdentityAddress as `0x${string}`,
+                abi: IdentityABI.filter((item) => item.type === "function"),
+                functionName: "isIssuerAuthorized",
                 args: [address],
-              })
+              }),
             ]);
 
             return {
@@ -90,10 +101,7 @@ export function TrustedIssuersTab() {
               isAuthorized: isAuthorizedData as boolean,
             };
           } catch (error) {
-            console.error(
-              `Failed to fetch data for issuer ${address}`,
-              error
-            );
+            console.error(`Failed to fetch data for issuer ${address}`, error);
             return {
               address: address.toString(),
               name: names[index],
@@ -181,13 +189,16 @@ export function TrustedIssuersTab() {
       });
     }
   };
-  const handleAuthorizeIssuer = async (issuerAddress: string, issuerName: string) => {
+  const handleAuthorizeIssuer = async (
+    issuerAddress: string,
+    issuerName: string
+  ) => {
     try {
       const result = await writeContract({
-        address: TrustedIssuersRegistryAddress,
-        abi: TrustedIssuersABI,
-        functionName: "addTrustedIssuer",
-        args: [issuerAddress, issuerName, []], // Empty topics for now, can be updated later
+        address: IdentityAddress,
+        abi: IdentityABI,
+        functionName: "setIssuerAuthorization",
+        args: [issuerAddress, true], // Empty topics for now, can be updated later
       });
 
       console.log("Issuer authorized successfully", result.hash);
@@ -198,16 +209,17 @@ export function TrustedIssuersTab() {
       });
 
       // Refresh the data
-      const updatedIssuers = trustedIssuers.map(issuer => 
-        issuer.address === issuerAddress 
+      const updatedIssuers = trustedIssuers.map((issuer) =>
+        issuer.address === issuerAddress
           ? { ...issuer, isAuthorized: true }
           : issuer
       );
       setTrustedIssuers(updatedIssuers);
     } catch (error) {
       console.log("Authorization error", error);
-      const errorMessage = error?.shortMessage || error?.message || "Failed to authorize issuer.";
-      
+      const errorMessage =
+        error?.shortMessage || error?.message || "Failed to authorize issuer.";
+
       if (errorMessage.includes("already exists")) {
         toast({
           title: "Already Authorized",
@@ -349,24 +361,31 @@ export function TrustedIssuersTab() {
 
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Claim Issuer Status:</span>
+                      <span className="text-sm text-muted-foreground">
+                        Claim Issuer Status:
+                      </span>
                       {issuer.isAuthorized ? (
                         <Badge className="bg-success/20 text-success hover:bg-success/30">
                           <ShieldCheck className="h-3 w-3 mr-1" />
                           Authorized
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="bg-warning/20 text-warning">
+                        <Badge
+                          variant="secondary"
+                          className="bg-warning/20 text-warning"
+                        >
                           <Shield className="h-3 w-3 mr-1" />
                           Not Authorized
                         </Badge>
                       )}
                     </div>
-                    
+
                     {!issuer.isAuthorized && (
                       <Button
                         size="sm"
-                        onClick={() => handleAuthorizeIssuer(issuer.address, issuer.name)}
+                        onClick={() =>
+                          handleAuthorizeIssuer(issuer.address, issuer.name)
+                        }
                         className="bg-success hover:bg-success/90 text-success-foreground"
                       >
                         <Shield className="h-3 w-3 mr-1" />

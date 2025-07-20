@@ -25,6 +25,11 @@
         "internalType": "uint256",
         "name": "validTo",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
       }
     ],
     "name": "addClaim",
@@ -163,7 +168,13 @@
       }
     ],
     "name": "submitClaimRequest",
-    "outputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -310,6 +321,39 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "getAllClaims",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "topicIds",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "issuers",
+        "type": "address[]"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "signatures",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "dataArray",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "validTos",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -321,7 +365,7 @@
     "outputs": [
       {
         "internalType": "uint256[]",
-        "name": "ids",
+        "name": "requestIds",
         "type": "uint256[]"
       },
       {
@@ -355,7 +399,7 @@
     "outputs": [
       {
         "internalType": "uint256[]",
-        "name": "ids",
+        "name": "requestIds",
         "type": "uint256[]"
       },
       {

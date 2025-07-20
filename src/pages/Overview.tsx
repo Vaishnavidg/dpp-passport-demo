@@ -6,33 +6,16 @@ import React from "react";
 export default function Overview() {
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground py-24">
-        <div className="container mx-auto px-6 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Trusted Framework for Regulated Digital Assets
-          </h1>
-          <p className="text-lg md:text-xl mb-10 opacity-90 max-w-3xl mx-auto">
-            Powered by ERC-3643 standard, enabling compliant token transfers with identity verification and regulatory compliance built-in.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="px-8 py-4 text-lg">
-              Get Started <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button size="lg" variant="outline" className="px-8 py-4 text-lg border-white/30 hover:bg-white/10">
-              View Demo
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* What is ERC-3643 Section */}
       <div className="py-20 bg-background">
         <div className="container mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">What is ERC-3643?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              What is ERC-3643?
+            </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              An Ethereum standard for compliant security tokens that ensures only verified entities can hold and transfer digital assets.
+              An Ethereum standard for compliant security tokens that ensures
+              only verified entities can hold and transfer digital assets.
             </p>
           </div>
 
@@ -46,7 +29,8 @@ export default function Overview() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">
-                  Connects verified identities to wallet addresses with on-chain claims
+                  Connects verified identities to wallet addresses with on-chain
+                  claims
                 </p>
               </CardContent>
             </Card>
@@ -60,7 +44,8 @@ export default function Overview() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">
-                  Automatic verification of KYC, AML, and regulatory requirements
+                  Automatic verification of KYC, AML, and regulatory
+                  requirements
                 </p>
               </CardContent>
             </Card>
@@ -86,7 +71,9 @@ export default function Overview() {
       <div className="py-20 bg-muted/30">
         <div className="container mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Why Choose This Platform?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              Why Choose This Platform?
+            </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Enterprise-grade compliance meets blockchain innovation
             </p>
@@ -148,7 +135,9 @@ export default function Overview() {
       <div className="py-20 bg-background">
         <div className="container mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">How It Works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              How It Works
+            </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Simple steps to create compliant digital assets
             </p>
@@ -201,7 +190,9 @@ export default function Overview() {
       {/* Get Started Section */}
       <div className="py-16 bg-gradient-to-r from-primary to-primary-glow text-primary-foreground">
         <div className="container mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Get Started?</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            Ready to Get Started?
+          </h2>
           <p className="text-lg mb-8 opacity-90 max-w-xl mx-auto">
             Explore our demo to see ERC-3643 in action
           </p>

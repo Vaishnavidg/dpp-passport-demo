@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,17 +13,24 @@ import {
   Building,
   RefreshCw,
 } from "lucide-react";
+import { useAccount, useContractRead } from "wagmi";
+import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
+import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
+
+const IdentityAddress = "0x66B7642b399A6c72b72129E8F1Af35DbcBf36b7d";
+const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
 
 interface ClaimRequest {
   id: string;
   claimType: string;
   issuerAddress: string;
-  status: "pending" | "approved" | "rejected";
-  timestamp: string;
-  message?: string;
+  status: string;
 }
 
-const claimTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+const claimTypeIcons: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
   kyc: User,
   aml: Shield,
   "proof-of-residency": MapPin,
@@ -39,40 +46,67 @@ const claimTypeNames: Record<string, string> = {
   "identity-document": "Identity Document",
 };
 
-// Mock data for demonstration
-const mockRequests: ClaimRequest[] = [
-  {
-    id: "1",
-    claimType: "kyc",
-    issuerAddress: "0x742d35Cc6634C0532925a3b8D0829677fa3fD5D",
-    status: "approved",
-    timestamp: "2024-01-15T10:30:00Z",
-    message: "Standard KYC verification for token access",
-  },
-  {
-    id: "2",
-    claimType: "aml",
-    issuerAddress: "0x742d35Cc6634C0532925a3b8D0829677fa3fD5D",
-    status: "pending",
-    timestamp: "2024-01-16T14:20:00Z",
-  },
-  {
-    id: "3",
-    claimType: "proof-of-residency",
-    issuerAddress: "0x8ba1f109551bD432803012645Hac136c59dd5043e",
-    status: "rejected",
-    timestamp: "2024-01-10T09:15:00Z",
-    message: "Address verification for regulatory compliance",
-  },
-];
-
 export function MyClaimRequestsList() {
-  const [requests, setRequests] = useState<ClaimRequest[]>(mockRequests);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { address } = useAccount();
+
+  const { data: topicList } = useContractRead({
+    address: ClaimTopicAddress,
+    abi: ClaimTopicsABI,
+    functionName: "getClaimTopicsWithNamesAndDescription",
+    watch: true,
+  });
+
+  const topics = useMemo(() => {
+    if (!topicList) return [];
+    const [ids, names, descriptions] = topicList as [
+      bigint[],
+      string[],
+      string[]
+    ];
+    return ids.map((id, index) => ({
+      id: id.toString(),
+      name: names[index],
+      description: descriptions[index],
+    }));
+  }, [topicList]);
+
+  const { data } = useContractRead({
+    address: IdentityAddress,
+    abi: IdentityABI,
+    functionName: "getRequestsByUser",
+    args: [address],
+    watch: true,
+  });
+
+  console.log("data", data);
+  const requests = useMemo(() => {
+    if (!data || topics.length === 0) return [];
+    const [ids, issuerAddresses, topicIds, statuses] = data as [
+      bigint[],
+      string[],
+      bigint[],
+      boolean[]
+    ];
+
+    return ids.map((id, index) => {
+      const topicId = topicIds[index].toString();
+      const topic = topics.find((t) => t.id === topicId);
+      const claimType = topic ? topic.name : "Unknown";
+      const statusValue = statuses[index];
+      const status = statusValue === false ? "pending" : "approved";
+
+      return {
+        id: id.toString(),
+        issuerAddress: issuerAddresses[index],
+        claimType,
+        status,
+      };
+    });
+  }, [data, topics]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsRefreshing(false);
   };
@@ -84,7 +118,7 @@ export function MyClaimRequestsList() {
       case "approved":
         return <CheckCircle className="h-4 w-4 text-success" />;
       case "rejected":
-        return <XCircle className="h-4 w-4 text-destructive" />;
+        return <XCircle className="h-4 w-4 text-red-500" />;
       default:
         return null;
     }
@@ -93,24 +127,29 @@ export function MyClaimRequestsList() {
   const getStatusBadge = (status: ClaimRequest["status"]) => {
     switch (status) {
       case "pending":
-        return <Badge variant="outline" className="text-warning border-warning">Pending</Badge>;
+        return (
+          <Badge variant="outline" className="text-warning border-warning">
+            Pending
+          </Badge>
+        );
       case "approved":
-        return <Badge variant="outline" className="text-success border-success">Approved</Badge>;
+        return (
+          <Badge variant="outline" className="text-success border-success">
+            Approved
+          </Badge>
+        );
       case "rejected":
-        return <Badge variant="outline" className="text-destructive border-destructive">Rejected</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="text-destructive border-destructive"
+          >
+            Rejected
+          </Badge>
+        );
       default:
         return null;
     }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   if (requests.length === 0) {
@@ -120,7 +159,8 @@ export function MyClaimRequestsList() {
           <Shield className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Claim Requests Yet</h3>
           <p className="text-muted-foreground text-center max-w-md">
-            You haven't requested any claims yet. Use the "Request Claim" button to submit your first identity verification request.
+            You haven't requested any claims yet. Use the "Request Claim" button
+            to submit your first identity verification request.
           </p>
         </CardContent>
       </Card>
@@ -138,17 +178,23 @@ export function MyClaimRequestsList() {
           disabled={isRefreshing}
           className="gap-2"
         >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+          />
           Refresh
         </Button>
       </div>
 
       <div className="space-y-3">
         {requests.map((request) => {
-          const ClaimIcon = claimTypeIcons[request.claimType] || Shield;
-          
+          const ClaimIcon =
+            claimTypeIcons[request.claimType.toLowerCase()] || Shield;
+
           return (
-            <Card key={request.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={request.id}
+              className="hover:shadow-md transition-shadow"
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -157,11 +203,11 @@ export function MyClaimRequestsList() {
                     </div>
                     <div>
                       <CardTitle className="text-base">
-                        {claimTypeNames[request.claimType] || request.claimType}
+                        {request.claimType}
                       </CardTitle>
-                      <p className="text-sm text-muted-foreground">
+                      {/* <p className="text-sm text-muted-foreground">
                         Requested {formatTimestamp(request.timestamp)}
-                      </p>
+                      </p> */}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -170,22 +216,25 @@ export function MyClaimRequestsList() {
                   </div>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="pt-0">
                 <div className="space-y-3">
                   <div>
                     <p className="text-sm font-medium">Issuer Address</p>
                     <p className="text-sm text-muted-foreground font-mono">
-                      {request.issuerAddress.slice(0, 6)}...{request.issuerAddress.slice(-4)}
+                      {request.issuerAddress.slice(0, 6)}...
+                      {request.issuerAddress.slice(-4)}
                     </p>
                   </div>
-                  
-                  {request.message && (
+
+                  {/* {request.message && (
                     <div>
                       <p className="text-sm font-medium">Message</p>
-                      <p className="text-sm text-muted-foreground">{request.message}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {request.message}
+                      </p>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </CardContent>
             </Card>

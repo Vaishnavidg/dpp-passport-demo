@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,19 +28,48 @@ import {
   XCircle,
   Clock,
   RefreshCw,
+  Copy,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAccount, useContractRead } from "wagmi";
+import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
+import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
+import IdentityRegistryABI from "../../../contracts-abi-files/IdentityRegistryABI.json";
+
+const IdentityAddress = "0x66B7642b399A6c72b72129E8F1Af35DbcBf36b7d";
+const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
+const IdentityRegistryAddress = "0x9e1EFE110aC3615ad3B669CC6a424e24e41bFd05";
+
+interface RegisteredUser {
+  walletAddress: string;
+  identityAddress: string;
+  countryCode: string;
+  claimsCount: number;
+  isKYCCompleted: boolean;
+  registrationDate: string;
+}
 
 interface ClaimRequest {
   id: string;
   requesterAddress: string;
   claimType: string;
-  message?: string;
-  timestamp: string;
   status: "pending" | "approved" | "rejected";
+  identityAddress: string;
+  countryCode: string;
+  registrationDate: string;
 }
 
-const claimTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+const formatAddress = (addr: string) => {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+};
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString();
+};
+
+const claimTypeIcons: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
   kyc: User,
   aml: Shield,
   "proof-of-residency": MapPin,
@@ -56,40 +85,154 @@ const claimTypeNames: Record<string, string> = {
   "identity-document": "Identity Document",
 };
 
-// Mock data for demonstration
-const mockRequests: ClaimRequest[] = [
-  {
-    id: "1",
-    requesterAddress: "0x1234567890123456789012345678901234567890",
-    claimType: "kyc",
-    message: "Requesting KYC verification for token access",
-    timestamp: "2024-01-16T14:30:00Z",
-    status: "pending",
-  },
-  {
-    id: "2",
-    requesterAddress: "0x9876543210987654321098765432109876543210",
-    claimType: "aml",
-    timestamp: "2024-01-16T12:15:00Z",
-    status: "pending",
-  },
-  {
-    id: "3",
-    requesterAddress: "0x5555666677778888999900001111222233334444",
-    claimType: "proof-of-residency",
-    message: "Need address verification for compliance requirements",
-    timestamp: "2024-01-15T16:45:00Z",
-    status: "approved",
-  },
-];
-
 export function ClaimRequestsTab() {
-  const [requests, setRequests] = useState<ClaimRequest[]>(mockRequests);
-  const [selectedRequest, setSelectedRequest] = useState<ClaimRequest | null>(null);
-  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
+  const { address } = useAccount();
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Address Copied",
+        description: "Address has been copied to clipboard",
+        variant: "default",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy address to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+  const getStatusIcon = (status: ClaimRequest["status"]) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="h-4 w-4 text-warning" />;
+      case "approved":
+        return <CheckCircle className="h-4 w-4 text-success" />;
+      case "rejected":
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusBadge = (status: ClaimRequest["status"]) => {
+    switch (status) {
+      case "pending":
+        return (
+          <Badge variant="outline" className="text-warning border-warning">
+            Pending
+          </Badge>
+        );
+      case "approved":
+        return (
+          <Badge variant="outline" className="text-success border-success">
+            Approved
+          </Badge>
+        );
+      case "rejected":
+        return (
+          <Badge
+            variant="outline"
+            className="text-destructive border-destructive"
+          >
+            Rejected
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const UsersData = useContractRead({
+    address: IdentityRegistryAddress,
+    abi: IdentityRegistryABI,
+    functionName: "getAllUsers",
+    watch: true,
+  });
+
+  const registeredUsers: RegisteredUser[] = useMemo(() => {
+    if (
+      Array.isArray(UsersData.data) &&
+      UsersData.data.length === 3 &&
+      Array.isArray(UsersData.data[0])
+    ) {
+      const [wallets, identities, countries] = UsersData.data;
+
+      return wallets.map((wallet: string, index: number) => ({
+        walletAddress: wallet,
+        identityAddress: identities[index],
+        countryCode: countries[index]?.toString() || "N/A",
+        claimsCount: 0, // You can update this later by reading Identity contract
+        isKYCCompleted: false, // You can dynamically check this using isClaimValid
+        registrationDate: new Date().toISOString(), // Optional placeholder
+      }));
+    }
+    return [];
+  }, [UsersData.data]);
+
+  const { data: topicList } = useContractRead({
+    address: ClaimTopicAddress,
+    abi: ClaimTopicsABI,
+    functionName: "getClaimTopicsWithNamesAndDescription",
+    watch: true,
+  });
+
+  const topics = useMemo(() => {
+    if (!topicList) return [];
+    const [ids, names, descriptions] = topicList as [
+      bigint[],
+      string[],
+      string[]
+    ];
+    return ids.map((id, index) => ({
+      id: id.toString(),
+      name: names[index],
+      description: descriptions[index],
+    }));
+  }, [topicList]);
+
+  const { data } = useContractRead({
+    address: IdentityAddress,
+    abi: IdentityABI,
+    functionName: "getRequestsForIssuer",
+    args: [address],
+    watch: true,
+  });
+
+  const requests: ClaimRequest[] = useMemo(() => {
+    if (!data || topics.length === 0) return [];
+    const [ids, requesterAddress, topicIds, statuses] = data as [
+      bigint[],
+      string[],
+      bigint[],
+      boolean[]
+    ];
+
+    return ids.map((id, index) => {
+      const topicId = topicIds[index].toString();
+      const topic = topics.find((t) => t.id === topicId);
+      const user = registeredUsers.find(
+        (user) => user.walletAddress === requesterAddress[index]
+      );
+      const claimType = topic ? topic.name : "Unknown";
+      const statusValue = statuses[index];
+      const status = statusValue === false ? "pending" : "approved";
+
+      return {
+        id: id.toString(),
+        requesterAddress: requesterAddress[index],
+        claimType,
+        status,
+        identityAddress: user.identityAddress,
+        countryCode: user.countryCode,
+        registrationDate: user.registrationDate,
+      };
+    });
+  }, [data, topics]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -97,74 +240,6 @@ export function ClaimRequestsTab() {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsRefreshing(false);
   };
-
-  const handleAction = async (request: ClaimRequest, action: "approve" | "reject") => {
-    setSelectedRequest(request);
-    setActionType(action);
-  };
-
-  const confirmAction = async () => {
-    if (!selectedRequest || !actionType) return;
-
-    setIsProcessing(true);
-    
-    try {
-      // Simulate smart contract interaction
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // Update the request status
-      setRequests(prev => 
-        prev.map(req => 
-          req.id === selectedRequest.id 
-            ? { ...req, status: actionType === "approve" ? "approved" : "rejected" }
-            : req
-        )
-      );
-
-      toast({
-        title: actionType === "approve" ? "Claim Issued Successfully" : "Request Rejected",
-        description: actionType === "approve" 
-          ? "The claim has been issued to the user's identity contract."
-          : "The claim request has been rejected.",
-      });
-
-      setSelectedRequest(null);
-      setActionType(null);
-    } catch (error) {
-      toast({
-        title: "Action Failed",
-        description: "Failed to process the request. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getStatusBadge = (status: ClaimRequest["status"]) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="outline" className="text-warning border-warning">Pending</Badge>;
-      case "approved":
-        return <Badge variant="outline" className="text-success border-success">Approved</Badge>;
-      case "rejected":
-        return <Badge variant="outline" className="text-destructive border-destructive">Rejected</Badge>;
-      default:
-        return null;
-    }
-  };
-
-  const pendingRequests = requests.filter(req => req.status === "pending");
 
   return (
     <div className="space-y-6">
@@ -174,7 +249,7 @@ export function ClaimRequestsTab() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Incoming Claim Requests
+                Claim Requests
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Review and process identity verification requests from users
@@ -187,12 +262,14 @@ export function ClaimRequestsTab() {
               disabled={isRefreshing}
               className="gap-2"
             >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+              />
               Refresh
             </Button>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           {requests.length === 0 ? (
             <div className="text-center py-12">
@@ -204,109 +281,90 @@ export function ClaimRequestsTab() {
             </div>
           ) : (
             <div className="space-y-4">
-              {pendingRequests.length > 0 && (
+              {requests.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-3 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-warning" />
-                    Pending Requests ({pendingRequests.length})
-                  </h4>
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>RequestId</TableHead>
                         <TableHead>Requester</TableHead>
                         <TableHead>Claim Type</TableHead>
-                        <TableHead>Message</TableHead>
-                        <TableHead>Requested</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pendingRequests.map((request) => {
-                        const ClaimIcon = claimTypeIcons[request.claimType] || Shield;
-                        
-                        return (
-                          <TableRow key={request.id}>
-                            <TableCell className="font-mono text-sm">
-                              {request.requesterAddress.slice(0, 6)}...{request.requesterAddress.slice(-4)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <ClaimIcon className="h-4 w-4 text-primary" />
-                                <span className="text-sm">
-                                  {claimTypeNames[request.claimType] || request.claimType}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="max-w-xs">
-                              <div className="truncate text-sm text-muted-foreground">
-                                {request.message || "No message provided"}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {formatTimestamp(request.timestamp)}
-                            </TableCell>
-                            <TableCell className="text-right space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleAction(request, "approve")}
-                                className="gap-1"
-                              >
-                                <CheckCircle className="h-3 w-3" />
-                                Issue
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleAction(request, "reject")}
-                                className="gap-1 text-destructive hover:text-destructive"
-                              >
-                                <XCircle className="h-3 w-3" />
-                                Reject
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-
-              {requests.filter(req => req.status !== "pending").length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-3">Processed Requests</h4>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Requester</TableHead>
-                        <TableHead>Claim Type</TableHead>
+                        <TableHead>Identity Address</TableHead>
+                        <TableHead>Registered Date</TableHead>
+                        <TableHead>Country Code</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Processed</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {requests.filter(req => req.status !== "pending").map((request) => {
-                        const ClaimIcon = claimTypeIcons[request.claimType] || Shield;
-                        
+                      {requests.map((request) => {
+                        const ClaimIcon =
+                          claimTypeIcons[request.claimType] || Shield;
+
                         return (
                           <TableRow key={request.id}>
                             <TableCell className="font-mono text-sm">
-                              {request.requesterAddress.slice(0, 6)}...{request.requesterAddress.slice(-4)}
+                              {request.id}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {request.requesterAddress.slice(0, 6)}...
+                              {request.requesterAddress.slice(-4)}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <ClaimIcon className="h-4 w-4 text-primary" />
                                 <span className="text-sm">
-                                  {claimTypeNames[request.claimType] || request.claimType}
+                                  {claimTypeNames[request.claimType] ||
+                                    request.claimType}
                                 </span>
                               </div>
                             </TableCell>
                             <TableCell>
-                              {getStatusBadge(request.status)}
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs font-mono"
+                                >
+                                  {formatAddress(request.identityAddress)}
+                                </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    copyToClipboard(request.identityAddress)
+                                  }
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {formatTimestamp(request.timestamp)}
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs font-mono"
+                                >
+                                  {formatDate(request.registrationDate)}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {" "}
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs font-mono"
+                                >
+                                  {request.countryCode}
+                                </Badge>
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="text-right space-x-2">
+                              <div className="flex items-end gap-2">
+                                {getStatusIcon(request.status)}
+                                {getStatusBadge(request.status)}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -319,92 +377,6 @@ export function ClaimRequestsTab() {
           )}
         </CardContent>
       </Card>
-
-      {/* Confirmation Dialog */}
-      <Dialog 
-        open={!!selectedRequest && !!actionType} 
-        onOpenChange={() => {
-          setSelectedRequest(null);
-          setActionType(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {actionType === "approve" ? (
-                <CheckCircle className="h-5 w-5 text-success" />
-              ) : (
-                <XCircle className="h-5 w-5 text-destructive" />
-              )}
-              {actionType === "approve" ? "Issue Claim" : "Reject Request"}
-            </DialogTitle>
-            <DialogDescription>
-              {actionType === "approve" 
-                ? "Are you sure you want to issue this claim to the user's identity contract?"
-                : "Are you sure you want to reject this claim request?"
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedRequest && (
-            <div className="space-y-3 py-4">
-              <div>
-                <p className="text-sm font-medium">Requester</p>
-                <p className="text-sm text-muted-foreground font-mono">
-                  {selectedRequest.requesterAddress}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Claim Type</p>
-                <p className="text-sm text-muted-foreground">
-                  {claimTypeNames[selectedRequest.claimType] || selectedRequest.claimType}
-                </p>
-              </div>
-              {selectedRequest.message && (
-                <div>
-                  <p className="text-sm font-medium">Message</p>
-                  <p className="text-sm text-muted-foreground">{selectedRequest.message}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSelectedRequest(null);
-                setActionType(null);
-              }}
-              disabled={isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmAction}
-              disabled={isProcessing}
-              variant={actionType === "approve" ? "default" : "destructive"}
-              className="gap-2"
-            >
-              {isProcessing ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  {actionType === "approve" ? (
-                    <CheckCircle className="h-4 w-4" />
-                  ) : (
-                    <XCircle className="h-4 w-4" />
-                  )}
-                  {actionType === "approve" ? "Issue Claim" : "Reject Request"}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

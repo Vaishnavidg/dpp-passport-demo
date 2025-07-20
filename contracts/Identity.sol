@@ -1,4 +1,4 @@
-//Contract Address = 0x1C3AF6B9A84eB8786cF6EAD08Be2176aE29b3589
+//Contract Address = 0x66B7642b399A6c72b72129E8F1Af35DbcBf36b7d 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
@@ -68,9 +68,11 @@ function addClaim(
     address issuer,
     bytes memory signature,
     bytes memory data,
-    uint256 validTo
+    uint256 validTo,
+    uint256 requestId
 ) external onlyAuthorizedIssuer {
     require(claimTopicsRegistry.topicExists(topic), "Claim topic not registered");
+       require(requestId < requestCount, "Invalid requestId");
 
     // Only add to topics array if topic is new
     if (claims[topic].validTo == 0) {
@@ -80,6 +82,7 @@ function addClaim(
     Claim memory newClaim = Claim(topic, issuer, signature, data, validTo);
     claims[topic] = newClaim;
     allClaims.push(newClaim);
+    requests[requestId].fulfilled = true;
 
     emit ClaimAdded(topic, issuer, validTo);
 }
@@ -92,7 +95,7 @@ function addClaim(
 
   // Get all claim requests for a specific issuer
 function getRequestsForIssuer(address issuer) external view returns (
-    uint[] memory ids,
+    uint256[] memory requestIds,
     address[] memory users,
     string[] memory claimTypes,
     bool[] memory fulfilledStatuses
@@ -107,7 +110,7 @@ function getRequestsForIssuer(address issuer) external view returns (
     }
 
     // Initialize return arrays
-    ids = new uint[](count);
+    requestIds = new uint[](count);
     users = new address[](count);
     claimTypes = new string[](count);
     fulfilledStatuses = new bool[](count);
@@ -115,7 +118,7 @@ function getRequestsForIssuer(address issuer) external view returns (
     uint index = 0;
     for (uint i = 0; i < requestCount; i++) {
         if (requests[i].issuer == issuer) {
-            ids[index] = i;
+            requestIds[index] = i;
             users[index] = requests[i].user;
             claimTypes[index] = requests[i].claimType;
             fulfilledStatuses[index] = requests[i].fulfilled;
@@ -127,14 +130,17 @@ function getRequestsForIssuer(address issuer) external view returns (
 
     // --- Claim Request Logic ---
 
-    function submitClaimRequest(address issuer, string calldata claimType) external {
-        requests[requestCount] = ClaimRequest(msg.sender, issuer, claimType, false);
-        emit ClaimRequested(requestCount, msg.sender, issuer, claimType);
-        requestCount++;
-    }
+    function submitClaimRequest(address issuer, string calldata claimType) external returns (uint256) {
+    uint256 currentId = requestCount;
+    requests[currentId] = ClaimRequest(msg.sender, issuer, claimType, false);
+    emit ClaimRequested(currentId, msg.sender, issuer, claimType);
+    requestCount++;
+    return currentId;
+}
+
 
     function getRequestsByUser(address user) external view returns (
-        uint256[] memory ids,
+        uint256[] memory requestIds,
         address[] memory issuers,
         string[] memory claimTypes,
         bool[] memory fulfilledStatuses
@@ -149,7 +155,7 @@ function getRequestsForIssuer(address issuer) external view returns (
         }
 
         // Allocate arrays
-        ids = new uint256[](count);
+        requestIds = new uint256[](count);
         issuers = new address[](count);
         claimTypes = new string[](count);
         fulfilledStatuses = new bool[](count);
@@ -158,7 +164,7 @@ function getRequestsForIssuer(address issuer) external view returns (
         uint256 index = 0;
         for (uint256 i = 0; i < requestCount; i++) {
             if (requests[i].user == user) {
-                ids[index] = i;
+                requestIds[index] = i;
                 issuers[index] = requests[i].issuer;
                 claimTypes[index] = requests[i].claimType;
                 fulfilledStatuses[index] = requests[i].fulfilled;
@@ -182,4 +188,30 @@ function getRequestsForIssuer(address issuer) external view returns (
         require(newOwner != address(0), "Invalid new owner");
         owner = newOwner;
     }
+
+    function getAllClaims() external view returns (
+    uint256[] memory topicIds,
+    address[] memory issuers,
+    bytes[] memory signatures,
+    bytes[] memory dataArray,
+    uint256[] memory validTos
+) {
+    uint256 count = allClaims.length;
+
+    topicIds = new uint256[](count);
+    issuers = new address[](count);
+    signatures = new bytes[](count);
+    dataArray = new bytes[](count);
+    validTos = new uint256[](count);
+
+    for (uint256 i = 0; i < count; i++) {
+        Claim memory claim = allClaims[i];
+        topicIds[i] = claim.topic;
+        issuers[i] = claim.issuer;
+        signatures[i] = claim.signature;
+        dataArray[i] = claim.data;
+        validTos[i] = claim.validTo;
+    }
+}
+
 }

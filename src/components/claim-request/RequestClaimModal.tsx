@@ -23,8 +23,11 @@ import { Plus, Shield, FileCheck, MapPin, Building, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useContractRead } from "wagmi";
 import ClaimTopicsABI from "../../../contracts-abi-files/ClaimTopicsABI.json";
+import IdentityABI from "../../../contracts-abi-files/IdentityABI.json";
+import { writeContract } from "@wagmi/core";
 
 const ClaimTopicAddress = "0x7697208833D220C5657B3B52D1f448bEdE084948";
+const IdentityAddress = "0x66B7642b399A6c72b72129E8F1Af35DbcBf36b7d";
 
 interface ClaimType {
   id: string;
@@ -38,39 +41,6 @@ interface TrustedIssuer {
   name: string;
   topics: string[];
 }
-
-const claimTypes: ClaimType[] = [
-  {
-    id: "kyc",
-    name: "KYC Verification",
-    icon: User,
-    description: "Know Your Customer verification",
-  },
-  {
-    id: "aml",
-    name: "AML Compliance",
-    icon: Shield,
-    description: "Anti-Money Laundering compliance check",
-  },
-  {
-    id: "proof-of-residency",
-    name: "Proof of Residency",
-    icon: MapPin,
-    description: "Verification of residential address",
-  },
-  {
-    id: "business-license",
-    name: "Business License",
-    icon: Building,
-    description: "Business registration verification",
-  },
-  {
-    id: "identity-document",
-    name: "Identity Document",
-    icon: FileCheck,
-    description: "Government-issued ID verification",
-  },
-];
 
 interface RequestClaimModalProps {
   trustedIssuers?: TrustedIssuer[];
@@ -117,19 +87,25 @@ export function RequestClaimModal({
     setIsSubmitting(true);
 
     try {
-      // Simulate API call to store claim request
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      toast({
-        title: "Claim Request Submitted",
-        description: "Your request has been sent to the issuer for review.",
+      const result = await writeContract({
+        address: IdentityAddress,
+        abi: IdentityABI,
+        functionName: "submitClaimRequest",
+        args: [issuerAddress, selectedClaimType], // Empty topics for now, can be updated later
       });
+      if (result) {
+        console.log("result", result);
+        toast({
+          title: "Claim Request Submitted",
+          description: "Your request has been sent to the issuer for review.",
+        });
 
-      // Reset form
-      setSelectedClaimType("");
-      setIssuerAddress("");
-      setMessage("");
-      setIsOpen(false);
+        // Reset form
+        setSelectedClaimType("");
+        setIssuerAddress("");
+        setMessage("");
+        setIsOpen(false);
+      }
     } catch (error) {
       toast({
         title: "Request Failed",
@@ -232,7 +208,7 @@ export function RequestClaimModal({
           </div>
 
           {/* Optional Message */}
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <Label htmlFor="message">Additional Information (Optional)</Label>
             <Textarea
               id="message"
@@ -241,7 +217,7 @@ export function RequestClaimModal({
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
             />
-          </div>
+          </div> */}
         </div>
 
         <DialogFooter>

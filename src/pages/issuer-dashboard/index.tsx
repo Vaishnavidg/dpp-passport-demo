@@ -38,15 +38,15 @@ export function IssuerDashboard() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-3 bg-secondary/50">
+        <TabsList className="grid w-full grid-cols-2 bg-secondary/50">
           <TabsTrigger value="claim-requests" className="gap-2">
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Requests</span>
           </TabsTrigger>
-          <TabsTrigger value="registered-users" className="gap-2">
+          {/* <TabsTrigger value="registered-users" className="gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Users</span>
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="issue-claims" className="gap-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Issue Claims</span>
@@ -57,9 +57,9 @@ export function IssuerDashboard() {
           <ClaimRequestsTab />
         </TabsContent>
 
-        <TabsContent value="registered-users">
+        {/* <TabsContent value="registered-users">
           <RegisteredUsersTab />
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="issue-claims">
           <IssueClaimsTab />

@@ -7,12 +7,6 @@ import { readContract } from "@wagmi/core";
 
 const TrustedIssuersRegistryAddress =
   "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
-// // Mock trusted issuers for the modal
-// const mockTrustedIssuers = [
-//   "0x742d35Cc6634C0532925a3b8D0829677fa3fD5D",
-//   "0x8ba1f109551bD432803012645Hac136c59dd5043e",
-//   "0x123456789012345678901234567890123456789",
-// ];
 
 interface TrustedIssuer {
   address: string;
