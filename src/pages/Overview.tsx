@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Shield, Users, CheckCircle } from "lucide-react";
 import React from "react";
+import { FeatureCard } from "@/components/ui/feature-card";
+import { StepIndicator } from "@/components/ui/step-indicator";
 
 export default function Overview() {
   return (
@@ -20,49 +21,24 @@ export default function Overview() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-                <CardTitle className="text-lg">Identity Registry</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm">
-                  Connects verified identities to wallet addresses with on-chain
-                  claims
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Shield className="h-6 w-6 text-primary" />
-                </div>
-                <CardTitle className="text-lg">Compliance Layer</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm">
-                  Automatic verification of KYC, AML, and regulatory
-                  requirements
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="h-6 w-6 text-primary" />
-                </div>
-                <CardTitle className="text-lg">Secure Transfers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm">
-                  Token transfers only between verified, compliant entities
-                </p>
-              </CardContent>
-            </Card>
+            <FeatureCard
+              icon={Users}
+              title="Identity Registry"
+              description="Connects verified identities to wallet addresses with on-chain claims"
+              size="lg"
+            />
+            <FeatureCard
+              icon={Shield}
+              title="Compliance Layer"
+              description="Automatic verification of KYC, AML, and regulatory requirements"
+              size="lg"
+            />
+            <FeatureCard
+              icon={CheckCircle}
+              title="Secure Transfers"
+              description="Token transfers only between verified, compliant entities"
+              size="lg"
+            />
           </div>
         </div>
       </div>
@@ -80,53 +56,34 @@ export default function Overview() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            <Card className="text-center p-6">
-              <CardContent className="pt-0">
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Shield className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-2">KYC/AML Ready</h3>
-                <p className="text-sm text-muted-foreground">
-                  Built-in compliance verification
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center p-6">
-              <CardContent className="pt-0">
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-2">Identity-First</h3>
-                <p className="text-sm text-muted-foreground">
-                  On-chain identity management
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center p-6">
-              <CardContent className="pt-0">
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-2">Fully Compliant</h3>
-                <p className="text-sm text-muted-foreground">
-                  Meets regulatory standards
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center p-6">
-              <CardContent className="pt-0">
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Shield className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-2">Enterprise Grade</h3>
-                <p className="text-sm text-muted-foreground">
-                  Scalable and secure
-                </p>
-              </CardContent>
-            </Card>
+            <FeatureCard
+              icon={Shield}
+              title="KYC/AML Ready"
+              description="Built-in compliance verification"
+              size="md"
+              className="p-6"
+            />
+            <FeatureCard
+              icon={Users}
+              title="Identity-First"
+              description="On-chain identity management"
+              size="md"
+              className="p-6"
+            />
+            <FeatureCard
+              icon={CheckCircle}
+              title="Fully Compliant"
+              description="Meets regulatory standards"
+              size="md"
+              className="p-6"
+            />
+            <FeatureCard
+              icon={Shield}
+              title="Enterprise Grade"
+              description="Scalable and secure"
+              size="md"
+              className="p-6"
+            />
           </div>
         </div>
       </div>
@@ -144,45 +101,26 @@ export default function Overview() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center mx-auto mb-4 text-lg font-bold">
-                1
-              </div>
-              <h3 className="font-semibold mb-2">Register Identity</h3>
-              <p className="text-sm text-muted-foreground">
-                Create verified on-chain identities
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center mx-auto mb-4 text-lg font-bold">
-                2
-              </div>
-              <h3 className="font-semibold mb-2">Issue Claims</h3>
-              <p className="text-sm text-muted-foreground">
-                Add KYC and compliance claims
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center mx-auto mb-4 text-lg font-bold">
-                3
-              </div>
-              <h3 className="font-semibold mb-2">Create Tokens</h3>
-              <p className="text-sm text-muted-foreground">
-                Issue compliant ERC-3643 tokens
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center mx-auto mb-4 text-lg font-bold">
-                4
-              </div>
-              <h3 className="font-semibold mb-2">Transfer Safely</h3>
-              <p className="text-sm text-muted-foreground">
-                Automatic compliance verification
-              </p>
-            </div>
+            <StepIndicator
+              stepNumber={1}
+              title="Register Identity"
+              description="Create verified on-chain identities"
+            />
+            <StepIndicator
+              stepNumber={2}
+              title="Issue Claims"
+              description="Add KYC and compliance claims"
+            />
+            <StepIndicator
+              stepNumber={3}
+              title="Create Tokens"
+              description="Issue compliant ERC-3643 tokens"
+            />
+            <StepIndicator
+              stepNumber={4}
+              title="Transfer Safely"
+              description="Automatic compliance verification"
+            />
           </div>
         </div>
       </div>

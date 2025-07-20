@@ -25,8 +25,8 @@ import ComplianceABI from "../../../contracts-abi-files/ComplianceABI.json";
 import { writeContract } from "@wagmi/core";
 import { formatUnits, isAddress, parseUnits } from "viem";
 
-const ERC3643TokenAddress = "0xb9e1301F57531854e267b2dcA1A68d5237D12E6a";
-const ComplianceAddress = "0xB47A318fEEFBc853Cd3a15e1Ad4e1f4326546bb0";
+const ERC3643TokenAddress = "0x61194488D14C1b159D7f0a290d3b74ec80AC98f2";
+const ComplianceAddress = "0x04f3A33B4fE27aC6a6611E125f16b55eeD16aa12";
 
 interface TokenTransfer {
   to: string;
@@ -79,9 +79,7 @@ export function TransferTokenTab() {
     watch: true,
   });
 
-  const Maximumlimit = Max.data
-    ? parseFloat(formatUnits(Max.data as bigint, 18))
-    : 0;
+  const Maximumlimit = Max.data ? (Max.data as bigint) : 0;
 
   useEffect(() => {
     const savedTransfers = localStorage.getItem("transfers");
@@ -123,14 +121,19 @@ export function TransferTokenTab() {
       });
       return;
     }
-    // if (amount > Maximumlimit) {
-    //   toast({
-    //     title: "Amount exceeds max transfer limit",
-    //     description: `Max allowed is ${Maximumlimit} tokens`,
-    //     variant: "destructive",
-    //   });
-    //   return;
-    // }
+    const amountStr = transferForm.amount.trim();
+
+    if (isNaN(Number(amountStr)) || Number(amountStr) <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Enter a positive decimal number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const amountInWei = BigInt(Math.floor(parseFloat(amountStr))); // ← Important line
+
     if (!isAddress(transferForm.to)) {
       toast({
         title: "Invalid address",
@@ -143,13 +146,11 @@ export function TransferTokenTab() {
     setIsTransferring(true);
 
     try {
-      // const amountInWei = parseUnits(transferForm.amount, 18); // <-- FIX
-
       const result = await writeContract({
         address: ERC3643TokenAddress,
         abi: ERC3643TokenABI,
         functionName: "transfer",
-        args: [transferForm.to, transferForm.amount],
+        args: [transferForm.to, amountInWei],
         enabled: transferForm && address,
       });
       if (result) {
@@ -273,7 +274,7 @@ export function TransferTokenTab() {
                   }
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Maximum: {Maximumlimit} tokens per transfer
+                  Maximum: {Number(Maximumlimit)} tokens per transfer
                 </p>
               </div>
 

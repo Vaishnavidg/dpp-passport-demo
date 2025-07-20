@@ -1,129 +1,22 @@
-import { useEffect, useState } from "react";
-import { useAccount, useBalance, useDisconnect } from "wagmi";
-import { useWeb3Modal } from "@web3modal/react";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 import { Navigation } from "@/components/custom-components/Navigations";
 import { AdminDashboard } from "./admin-dashboard/index";
 import { UserDashboard } from "./user-dashboard";
 import { IssuerDashboard } from "./issuer-dashboard";
 import Overview from "./Overview";
-import { readContract } from "@wagmi/core";
-import TrustedIssuersABI from "../../contracts-abi-files/TrustedIssuersABI.json";
+import { useWalletConnection } from "@/hooks/use-wallet-connection";
 
-interface ClaimTopic {
-  id: number;
-  name: string;
-}
-
-interface TrustedIssuer {
-  address: string;
-  authorizedTopics: number[];
-}
-
-interface UserIdentity {
-  walletAddress: string;
-  identityAddress: string;
-  countryCode: string;
-}
-
-interface Claim {
-  userAddress: string;
-  topicId: number;
-  issuer: string;
-  expiryDate: string;
-  isValid: boolean;
-}
 type PageType = "overview" | "admin" | "user" | "issuer";
 
-const Admin = "0x35C6e706EE23CD898b2C15fEB20f0fE726E734D2";
-const TrustedIssuersRegistryAddress =
-  "0xDaAEeCe678eb75fA3898606dD69262c255860eAF";
-
 const Index = () => {
-  const { toast } = useToast();
-  const [walletAddress, setWalletAddress] = useState("");
   const [currentPage, setCurrentPage] = useState<PageType>("overview");
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isTrustedIssuer, setIsTrustedIssuer] = useState(false);
-
-  useEffect(() => {
-    if (walletAddress === Admin) {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-    }
-  }, [walletAddress]);
-
-  // Check if user is a trusted issuer
-  useEffect(() => {
-    const checkIssuerStatus = async () => {
-      if (!walletAddress) {
-        setIsTrustedIssuer(false);
-        return;
-      }
-
-      try {
-        const result = await readContract({
-          address: TrustedIssuersRegistryAddress,
-          abi: TrustedIssuersABI,
-          functionName: "isTrustedIssuer",
-          args: [walletAddress],
-        });
-        setIsTrustedIssuer(result as boolean);
-      } catch (error) {
-        console.error("Error checking issuer status:", error);
-        setIsTrustedIssuer(false);
-      }
-    };
-
-    checkIssuerStatus();
-  }, [walletAddress]);
-
-  const { open } = useWeb3Modal();
-  const { disconnect } = useDisconnect();
-
-  const { isConnected, address } = useAccount();
-  const { data } = useBalance({
-    address: address,
-  });
-
-  // ****Connect wallet and fetch balance and address.*******
-  useEffect(() => {
-    const handleConnection = async () => {
-      if (isConnected && address) {
-        setWalletAddress(address);
-        // setWatrBalance(parseFloat(data?.formatted || "0").toFixed(4));
-        toast({
-          title: "Wallet Connected",
-          description: "Successfully connected to wallet",
-        });
-      }
-    };
-    handleConnection();
-  }, [isConnected, address, data]);
-
-  const connectWallet = async () => {
-    try {
-      if (isConnected) {
-        await disconnect();
-        toast({
-          title: "Wallet Disconnected",
-          description: "Successfully disconnected from wallet",
-        });
-      } else {
-        await open();
-      }
-    } catch (error) {
-      console.error("Error managing wallet connection:", error);
-      toast({
-        title: "Operation Failed",
-        description: isConnected
-          ? "Failed to disconnect wallet. Please try again."
-          : "Failed to connect wallet. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  const { 
+    walletAddress, 
+    isConnected, 
+    isAdmin, 
+    isTrustedIssuer, 
+    connectWallet 
+  } = useWalletConnection();
 
   const renderCurrentPage = () => {
     switch (currentPage) {

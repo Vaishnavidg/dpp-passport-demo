@@ -1,4 +1,4 @@
-//contract Address => 0xB47A318fEEFBc853Cd3a15e1Ad4e1f4326546bb0
+//contract Address => 0x04f3A33B4fE27aC6a6611E125f16b55eeD16aa12
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
@@ -15,7 +15,7 @@ contract Compliance {
     TrustedIssuersRegistry public trustedIssuers;
     ClaimTopicsRegistry public claimTopics;
 
-    uint256 public constant MAX_TRANSFER_LIMIT = 50 ether; // 50 tokens with 18 decimals
+    uint256 public constant MAX_TRANSFER_LIMIT = 50 wei; // 50 tokens
 
     constructor(
         IdentityRegistry _identityRegistry,
