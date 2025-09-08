@@ -8,6 +8,7 @@ export default function Navbar({
   activeSection,
   setActiveSection,
 }) {
+  console.log("watrBalance", watrBalance);
   const navigationItems = [
     { id: "send", label: "Send WATR", icon: Send },
     { id: "tokens", label: "ERC20 Tokens", icon: Coins },
